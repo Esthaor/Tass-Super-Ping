@@ -36,9 +36,9 @@ import pl.tass.superping.superpingcrawler.model.TracerouteStep;
  */
 public class DataGrabber {
     private final String USER_AGENT = "Mozilla/5.0";
-    private final int PING_COUNT = 20;
-    private final int MAX_RETRY = 5;
-    private final int SLEEPTIME = 100;
+    private final int PING_COUNT = 10;
+    private final int MAX_RETRY = 2;
+    private final int SLEEPTIME = 25;
     private final String[] ACTIONS = {
         "ping",
         "mtr_report"
@@ -212,7 +212,7 @@ public class DataGrabber {
                     i--;
                     retryCount++;
                     System.out.println("Empty response: retrying...");
-                    Thread.sleep(1000);
+                    Thread.sleep(SLEEPTIME);
                     continue;
                 }
                 retryCount = 0;
