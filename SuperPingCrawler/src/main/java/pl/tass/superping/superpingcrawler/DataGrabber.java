@@ -60,8 +60,20 @@ public class DataGrabber {
         "China, Anhui", "China, Jiangsu", "China, Jiangsu", "China, Jiangsu",
         "China, Qingdao", "China, Qingdao", "China, Shanghai"
     };
-    public static final String[] TESTED_SITES = {
-        "wp.pl", "onet.pl", "allegro.pl"
+    public static final String[] TESTED_SITES_POLAND = {
+        "olx.pl", "wp.pl", "onet.pl", "allegro.pl", "interia.pl"
+    };
+    public static final String[] TESTED_SITES_USA = {
+        "google.com", "facebook.com", "youtube.com", "amazon.com", "craigslist.org"
+    };
+    public static final String[] TESTED_SITES_RUS = {
+        "vk.com", "yandex.ru", "ok.ru", "mail.ru", "avito.ru"
+    };
+    public static final String[] TESTED_SITES_CHINA = {
+        "baidu.com", "qq.com", "taobao.com", "sohu.com", "jd.com"
+    };
+    public static final String[] TESTED_SITES_GERMANY = {
+        "ebay.de", "web.de", "gmx.net"
     };
 
     private String request_id;
@@ -72,13 +84,46 @@ public class DataGrabber {
 
     public static void main(String[] args) throws Exception {
         DataGrabber crawler = new DataGrabber();
-        String site = DataGrabber.TESTED_SITES[0];
-        String json = crawler.createStats(site);
-        new File("data").mkdirs();
-        File file = new File("data/" + site.replace(".", "") + ".json");
-        file.createNewFile();
-        Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
-        System.out.println(json);
+        for (String site : DataGrabber.TESTED_SITES_POLAND) {
+            String json = crawler.createStats(site);
+            new File("data/poland").mkdirs();
+            File file = new File("data/poland" + site.replace(".", "") + ".json");
+            file.createNewFile();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
+            System.out.println(json);
+        }
+        for (String site : DataGrabber.TESTED_SITES_USA) {
+            String json = crawler.createStats(site);
+            new File("data/usa").mkdirs();
+            File file = new File("data/usa" + site.replace(".", "") + ".json");
+            file.createNewFile();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
+            System.out.println(json);
+        }
+        for (String site : DataGrabber.TESTED_SITES_RUS) {
+            String json = crawler.createStats(site);
+            new File("data/russia").mkdirs();
+            File file = new File("data/russia" + site.replace(".", "") + ".json");
+            file.createNewFile();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
+            System.out.println(json);
+        }
+        for (String site : DataGrabber.TESTED_SITES_CHINA) {
+            String json = crawler.createStats(site);
+            new File("data/china").mkdirs();
+            File file = new File("data/china" + site.replace(".", "") + ".json");
+            file.createNewFile();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
+            System.out.println(json);
+        }
+        for (String site : DataGrabber.TESTED_SITES_GERMANY) {
+            String json = crawler.createStats(site);
+            new File("data/germany").mkdirs();
+            File file = new File("data/germany" + site.replace(".", "") + ".json");
+            file.createNewFile();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
+            System.out.println(json);
+        }
     }
 
     public String createStats(String domain) throws UnknownHostException {
@@ -96,8 +141,8 @@ public class DataGrabber {
             sd.setShortname(SERVERS[i]);
 //            PingResults pr = pingSite(siteIp, SERVERS[i]);
 //            sd.setPing(pr);
-//            List<TracerouteStep> tsl = tracerouteSite(siteIp, SERVERS[i]);
-//            sd.setTraceroute(tsl);
+            List<TracerouteStep> tsl = tracerouteSite(siteIp, SERVERS[i]);
+            sd.setTraceroute(tsl);
             servers.add(sd);
         }
         siteInfo.setServers(servers);
@@ -219,8 +264,7 @@ public class DataGrabber {
                     continue;
                 }
                 retryCount = 0;
-                System.out.println(route);
-//                res.add(Double.parseDouble(time.trim()));
+                res = htmlToRouteList(route);
                 Thread.sleep(SLEEPTIME);
             }
         } catch (Exception ex) {
@@ -248,6 +292,59 @@ public class DataGrabber {
             response.append(inputLine);
         in.close();
         return response.toString();
+    }
+
+    private List<TracerouteStep> htmlToRouteList(String route) {
+        List<TracerouteStep> res = new ArrayList<>();
+        String[] steps = route.split("\\d+\\.\\s+<");
+        for (String step : steps) {
+            if (step.isEmpty())
+                continue;
+            TracerouteStep ts = new TracerouteStep();
+            Pattern pattern = Pattern.compile("span title='([a-zA-Z\\s]+)'>");
+            Matcher matcher = pattern.matcher(step);
+            String country;
+            if (matcher.find())
+                country = matcher.group(1);
+            else
+                country = "???";
+            pattern = Pattern.compile("<span>(\\d+\\.\\d+\\.\\d+\\.\\d+)<\\/span>");
+            matcher = pattern.matcher(step);
+            String address;
+            if (matcher.find())
+                address = matcher.group(1);
+            else
+                address = "???";
+            pattern = Pattern.compile("<span>([\\d\\w\\s\\-]+)<\\/span>");
+            matcher = pattern.matcher(step);
+            String company;
+            if (matcher.find())
+                company = matcher.group(1);
+            else
+                company = "???";
+            pattern = Pattern.compile("<span title='([\\d\\w\\s\\-\\.]+\\.[\\d\\w\\s\\-\\.]+)'");
+            matcher = pattern.matcher(step);
+            String domain;
+            if (matcher.find())
+                domain = matcher.group(1);
+            else
+                domain = "???";
+            pattern = Pattern.compile("\\d+\\.\\d\\%\\s+\\d+\\s+\\d+\\.\\d+\\s+(\\d+\\.\\d+)\\s+\\d+\\.\\d+\\s+\\d+\\.\\d+\\s+\\d+\\.\\d+\\s+");
+            matcher = pattern.matcher(step);
+            String delay;
+            if (matcher.find())
+                delay = matcher.group(1);
+            else
+                delay = "???";
+
+            ts.setCountry(country);
+            ts.setAddress(address);
+            ts.setName(company);
+            ts.setDomain(domain);
+            ts.setDelay(delay);
+            res.add(ts);
+        }
+        return res;
     }
 
 }
