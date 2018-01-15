@@ -3,12 +3,14 @@ package pl.tass.superping.superpingcrawler;
 import com.google.gson.Gson;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import pl.tass.superping.superpingcrawler.model.PingResults;
 import pl.tass.superping.superpingcrawler.model.ServerData;
 import pl.tass.superping.superpingcrawler.model.SiteInfo;
@@ -33,9 +36,9 @@ import pl.tass.superping.superpingcrawler.model.TracerouteStep;
  */
 public class DataGrabber {
     private final String USER_AGENT = "Mozilla/5.0";
-    private final int PING_COUNT = 4;
-    private final int MAX_RETRY = 4;
-    private final int SLEEPTIME = 1000;
+    private final int PING_COUNT = 20;
+    private final int MAX_RETRY = 5;
+    private final int SLEEPTIME = 100;
     private final String[] ACTIONS = {
         "ping",
         "mtr_report"
@@ -74,7 +77,7 @@ public class DataGrabber {
         "baidu.com", "qq.com", "taobao.com", "sohu.com", "jd.com"
     };
     public static final String[] TESTED_SITES_GERMANY = {
-        "ebay.de", "web.de", "gmx.net"
+        "t-online.de", "web.de", "gmx.net", "chip.de", "spiegel.de"
     };
 
     private String request_id;
@@ -86,9 +89,9 @@ public class DataGrabber {
     public static void main(String[] args) throws Exception {
         DataGrabber crawler = new DataGrabber();
         for (String site : DataGrabber.TESTED_SITES_POLAND) {
-            String json = crawler.createStats(site);
-            new File("data/poland").mkdirs();
-            File file = new File("data/poland" + site.replace(".", "") + ".json");
+            String json = crawler.createStats(site, "poland");
+            new File("data/poland/").mkdirs();
+            File file = new File("data/poland/" + site.replace(".", "") + ".json");
             file.createNewFile();
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
@@ -96,9 +99,9 @@ public class DataGrabber {
             System.out.println(json);
         }
         for (String site : DataGrabber.TESTED_SITES_USA) {
-            String json = crawler.createStats(site);
-            new File("data/usa").mkdirs();
-            File file = new File("data/usa" + site.replace(".", "") + ".json");
+            String json = crawler.createStats(site, "usa");
+            new File("data/usa/").mkdirs();
+            File file = new File("data/usa/" + site.replace(".", "") + ".json");
             file.createNewFile();
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
@@ -107,9 +110,9 @@ public class DataGrabber {
             System.out.println(json);
         }
         for (String site : DataGrabber.TESTED_SITES_RUS) {
-            String json = crawler.createStats(site);
-            new File("data/russia").mkdirs();
-            File file = new File("data/russia" + site.replace(".", "") + ".json");
+            String json = crawler.createStats(site, "russia");
+            new File("data/russia/").mkdirs();
+            File file = new File("data/russia/" + site.replace(".", "") + ".json");
             file.createNewFile();
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
@@ -117,9 +120,9 @@ public class DataGrabber {
             System.out.println(json);
         }
         for (String site : DataGrabber.TESTED_SITES_CHINA) {
-            String json = crawler.createStats(site);
-            new File("data/china").mkdirs();
-            File file = new File("data/china" + site.replace(".", "") + ".json");
+            String json = crawler.createStats(site, "china");
+            new File("data/china/").mkdirs();
+            File file = new File("data/china/" + site.replace(".", "") + ".json");
             file.createNewFile();
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
@@ -127,9 +130,9 @@ public class DataGrabber {
             System.out.println(json);
         }
         for (String site : DataGrabber.TESTED_SITES_GERMANY) {
-            String json = crawler.createStats(site);
-            new File("data/germany").mkdirs();
-            File file = new File("data/germany" + site.replace(".", "") + ".json");
+            String json = crawler.createStats(site, "germany");
+            new File("data/germany/").mkdirs();
+            File file = new File("data/germany/" + site.replace(".", "") + ".json");
             file.createNewFile();
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
@@ -138,7 +141,7 @@ public class DataGrabber {
         }
     }
 
-    public String createStats(String domain) throws UnknownHostException {
+    public String createStats(String domain, String country) throws UnknownHostException {
         SiteInfo siteInfo = new SiteInfo();
         String siteIp;
 
@@ -151,9 +154,9 @@ public class DataGrabber {
             ServerData sd = new ServerData();
             sd.setName(SERVERS_NAMES[i]);
             sd.setShortname(SERVERS[i]);
-//            PingResults pr = pingSite(siteIp, SERVERS[i]);
-//            sd.setPing(pr);
-            List<TracerouteStep> tsl = tracerouteSite(siteIp, SERVERS[i]);
+            PingResults pr = pingSite(siteIp, SERVERS[i]);
+            sd.setPing(pr);
+            List<TracerouteStep> tsl = tracerouteSite(domain, i, country);
             sd.setTraceroute(tsl);
             servers.add(sd);
         }
@@ -245,44 +248,18 @@ public class DataGrabber {
         return new PingResults(percentLost, minTime, maxTime, avgTime);
     }
 
-    private List<TracerouteStep> tracerouteSite(String destIp, String server) {
+    private List<TracerouteStep> tracerouteSite(String site, int server, String country) {
         List<TracerouteStep> res = new ArrayList<>();
         try {
-            StringBuilder sb = new StringBuilder();
-            sb.append(BASE_URL)
-                    .append("?")
-                    .append("action=")
-                    .append(ACTIONS[1])
-                    .append("&")
-                    .append("pinger=")
-                    .append(server)
-                    .append("&")
-                    .append("request_id=")
-                    .append(request_id)
-                    .append("&")
-                    .append("ip=")
-                    .append(destIp);
-            String url = sb.toString();
-            int retryCount = 0;
-            String traceroute = "";
-            while (traceroute.isEmpty()) {
-                if (retryCount == MAX_RETRY)
-                    break;
-                String route = sendGet(url);
-                if (route.trim().isEmpty()) { // Zabezpieczenie przed pustymi odpowiedziami
-                    retryCount++;
-                    System.out.println("Empty response: retrying...");
-                    Thread.sleep(30000);    // Traceroute trwa u nich długo, dlatego dlugi sleep gdy brak danych
-                    continue;
-                }
-                retryCount = 0;
-                res = htmlToRouteList(route);
-                Thread.sleep(SLEEPTIME);
-            }
-        } catch (Exception ex) {
+            byte[] encoded = Files.readAllBytes(Paths.get("resource/" + country + "/" + site.replace(".", "") + ".html"));
+            String page = new String(encoded, Charset.defaultCharset());
+            Document parse = Jsoup.parse(page);
+            Elements pres = parse.select("pre");
+            Element route = pres.get(server);
+            res = htmlToRouteList(route.getAllElements().toString());
+        } catch (IOException ex) {
             Logger.getLogger(DataGrabber.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println(res);
         return res;
     }
 
@@ -308,12 +285,12 @@ public class DataGrabber {
 
     private List<TracerouteStep> htmlToRouteList(String route) {
         List<TracerouteStep> res = new ArrayList<>();
-        String[] steps = route.split("\\d+\\.\\s+<");
+        String[] steps = route.split("\\d+\\.[\\s|-]+<");
         for (String step : steps) {
-            if (step.isEmpty())
+            if (step.equals("<pre>"))
                 continue;
             TracerouteStep ts = new TracerouteStep();
-            Pattern pattern = Pattern.compile("span title='([a-zA-Z\\s]+)'>");
+            Pattern pattern = Pattern.compile("span title=\"([\\w\\s\\-]+)\">");
             Matcher matcher = pattern.matcher(step);
             String country;
             if (matcher.find())
@@ -334,7 +311,7 @@ public class DataGrabber {
                 company = matcher.group(1);
             else
                 company = "???";
-            pattern = Pattern.compile("<span title='([\\d\\w\\s\\-\\.]+\\.[\\d\\w\\s\\-\\.]+)'");
+            pattern = Pattern.compile("<span title=\"([\\d\\w\\s\\-\\.]+\\.[\\d\\w\\s\\-\\.]+)\"");
             matcher = pattern.matcher(step);
             String domain;
             if (matcher.find())

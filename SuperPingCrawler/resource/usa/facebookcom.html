@@ -1,0 +1,1873 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!-- saved from url=(0028)https://ping.pe/facebook.com -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Ping and mtr from multiple locations – facebook.com</title>
+        <meta name="GENERATOR" content="Hands">
+        
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta name="description" http-equiv="description" content="The Best Ping+MTR combination Ever.">
+
+        <script async="" src="./facebookcom_files/analytics.js"></script><script src="./facebookcom_files/jquery-2.3.1.min.js"></script>
+        <script>
+          (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-248212-40', 'auto');
+          ga('send', 'pageview');
+
+        </script>
+        
+    </head>
+
+<body>
+
+
+
+
+
+
+<script type="text/javascript">
+function getAverage ( a ) {
+    var sum = 0;
+    for( var i = 0; i < a.length; i++ ){
+        sum += parseFloat( a[i], 10 ); //don't forget to add the base
+    }
+
+    var avg = sum/a.length;
+    return avg;
+}
+
+function isNumber(n){
+    return typeof(n) != "boolean" && !isNaN(parseFloat(n));
+}
+
+function stDev(values){
+    var avg = getAverage(values);
+    var squareDiffs = values.map(function(value){
+        var diff = value - avg;
+        var sqrDiff = diff * diff;
+        return sqrDiff;
+    });
+    var avgSquareDiff = getAverage(squareDiffs);
+
+    var stdDev = Math.sqrt(avgSquareDiff);
+    return stdDev;
+} 
+
+var STR_PAD_LEFT = 1;
+var STR_PAD_RIGHT = 2;
+var STR_PAD_BOTH = 3;
+
+function str_pad(str, len, pad, dir) {
+
+    if (typeof(len) == "undefined") { var len = 0; }
+    if (typeof(pad) == "undefined") { var pad = ' '; }
+    if (typeof(dir) == "undefined") { var dir = STR_PAD_RIGHT; }
+
+    if (len + 1 >= str.length) {
+
+        switch (dir){
+
+            case STR_PAD_LEFT:
+                str = Array(len + 1 - str.length).join(pad) + str;
+            break;
+
+            case STR_PAD_BOTH:
+                var right = Math.ceil((padlen = len - str.length) / 2);
+                var left = padlen - right;
+                str = Array(left+1).join(pad) + str + Array(right+1).join(pad);
+            break;
+
+            default:
+                str = str + Array(len + 1 - str.length).join(pad);
+            break;
+
+        } // switch
+
+    }
+
+    return str;
+
+}
+
+function lameCenterElement( element ) {
+    /* we must center manually or else html2canvas will make a blurry image (due to subpixel-level rendering) */
+    width = $(window).width();
+    containerWidth = $(element).width();
+    leftMargin = Math.round ( ( width - containerWidth ) / 2 );
+    if ( leftMargin < 0 ) leftMargin = 0;
+    $(element).css("marginLeft", leftMargin);    
+}
+
+
+function doSuperCrazyShit ( pinger_id, pinger_location, pinger_provider, request_id, ip ) {
+
+
+    var totalMtrQueries = 0;
+    var mtrReport = '';
+    var latencyValues = new Array();
+    var totalPingQueries = 0;
+    var totalPingerresponsesReceived = 0;
+    var lostCount = 0;
+    var best = 0;
+    var last;
+    var worst = 0;
+    var maxIterations = 100;
+    var maxMtrQueries = 30;
+    var maxPingQueries = 300;
+    var htmlEntity = 'ping-' + pinger_id;
+
+    var canvas = document.getElementById('canvas-' + pinger_id);
+    var canvasContext = canvas.getContext('2d');
+
+
+
+
+    function pollMTR(){
+
+        var mtr_url = "./pinger.php?action=mtr_report&pinger=" + pinger_id + "&request_id=" + request_id + "&ip=" + ip;
+
+        var o_MtrGet = $.get( mtr_url ) 
+            .done ( function ( data ) {
+                totalMtrQueries = totalMtrQueries + 1;
+
+                mtrReport = data.trim();
+                if ( mtrReport == '' ) {
+                    if ( totalMtrQueries < maxMtrQueries ) {
+                        setTimeout(pollMTR, 11000);
+                    }
+                    return true;
+                }
+
+                $('#td-' + pinger_id + '-mtr-report-loading').toggle ( false );
+
+                $('#td-' + pinger_id + '-mtr-report-show').toggle ( true );
+                $('#td-' + pinger_id + '-mtr-report-show').fadeTo (400, 0.9);
+                $('#' + htmlEntity + '-mtr').closest('TR').after("<tr id='" + htmlEntity + "-mtr-report' " + " style='display:none; background-color:#001800;outline: 1px solid #102510'><td colspan=99><PRE>" + mtrReport + "</PRE></td></tr>");
+                $('#' + htmlEntity + '-mtr').click ( function () {
+                    $('#' + htmlEntity + '-mtr-report').toggle();
+                });
+
+
+            });
+      
+        
+    }
+
+
+    function pollPing(){
+
+        var ping_url = "./pinger.php?action=ping&pinger=" + pinger_id + "&request_id=" + request_id + "&ip=" + ip;
+        
+
+        var o_PingGet = $.get( ping_url ) 
+            .done ( function ( data ) {
+                totalPingQueries = totalPingQueries + 1;
+                
+                // pinger offline?
+                if ( totalPingQueries > 5  && totalPingerresponsesReceived == 0 ) {
+                    $('#' + htmlEntity + '-loss').html ( '<span style="color:#a0a0a0">location</span>' );
+                    $('#' + htmlEntity + '-sent').html ( '<span style="color:#a0a0a0">offline</span>' );
+                }
+
+                last = data.trim();
+                if ( last == '' ) {
+                    if ( totalPingerresponsesReceived < maxIterations && totalPingQueries < maxPingQueries ) {
+                        setTimeout(pollPing, 2100);
+                    }
+                    return true;
+                }
+
+                totalPingerresponsesReceived = totalPingerresponsesReceived + 1;
+
+                if ( isNumber ( last ) ) {
+                    last = Math.round ( last * 100 ) / 100;
+                    latencyValues.push ( last );
+                    if ( best == 0 || best > last ) {
+                        best = last;
+                    }
+                    if ( worst == 0 || worst < last ) {
+                        worst = last;
+                    }                
+                }
+                
+                var s_last = last;
+                if ( last == 'timeout' ) {
+                    s_last = "&ndash;";
+                    lostCount = lostCount  + 1;
+                }
+
+                var s_stdev = Math.round ( stDev(latencyValues) * 100 ) / 100;
+                if (isNaN(s_stdev)) s_stdev = "&ndash;"; // handle NaN value
+
+                var s_average = Math.round ( getAverage(latencyValues) * 100 ) / 100;
+                if (isNaN(s_average)) s_average = "&ndash;"; // handle NaN value
+
+                var s_loss = Math.round ( lostCount / totalPingerresponsesReceived * 1000 ) / 10;
+
+                var s_best = best;
+                if (s_best == 0) s_best = "&ndash;"; 
+
+                var s_worst = worst;
+                if (s_worst == 0) s_worst = "&ndash;"; 
+
+                $('#' + htmlEntity + '-loss').html ( s_loss + "%" );
+                $('#' + htmlEntity + '-sent').html ( totalPingerresponsesReceived );
+                $('#' + htmlEntity + '-last').html ( s_last );
+                $('#' + htmlEntity + '-avg').html ( s_average );
+                $('#' + htmlEntity + '-best').html ( s_best );
+                $('#' + htmlEntity + '-worst').html ( s_worst );
+                $('#' + htmlEntity + '-stdev').html ( s_stdev );
+
+                var value = last;
+                color = '009000';
+                if ( value == 'timeout' ) {
+                    value = 600;
+                    color = 'ff0000';
+                } else if ( value > 450 ) {
+                    color = 'f0a030';
+                    if ( value > 600 ) {
+                        value = 600;
+                    }
+                } else if ( value > 350 ) {
+                    color = 'd0d000';
+                }
+
+                var scale = Math.sqrt (600) / 20;
+                var size = Math.floor(Math.sqrt (value) / scale );
+                if ( size < 1 ) size = 1;
+                var x = ( totalPingerresponsesReceived - 1 ) * 2;
+                var y = 20 - size;
+                canvasContext.fillStyle = '#' + color;
+                canvasContext.fillRect ( x, y, 2, size);
+
+
+                //var ss = totalPingerresponsesReceived + " " + maxIterations + " " +  totalPingQueries + " " + maxPingQueries + " " + color;
+                //$('#' + htmlEntity + '-debug').html ( ss );
+
+                var s = "";
+                s = s + str_pad(pinger_location, 25) + " ";
+                s = s + str_pad(pinger_provider, 20) + " ";
+                s = s + str_pad(s_loss.toString() + "%", 6) + " ";
+                s = s + str_pad(totalPingerresponsesReceived.toString(), 6) + " ";
+                s = s + str_pad(s_last.toString(), 6) + " ";
+                s = s + str_pad(s_average.toString(), 6) + " ";
+                s = s + str_pad(s_best.toString(), 6) + " ";
+                s = s + str_pad(s_worst.toString(), 6) + " ";
+                s = s + str_pad(s_stdev.toString(), 6) + " ";
+
+
+                $('#string-' + pinger_id).html(s);
+                var tmp =  $('#dataForBuffer').text();
+                $('#copy-button').attr('data-clipboard-text', tmp);
+
+
+                if ( totalPingerresponsesReceived < maxIterations && totalPingQueries < maxPingQueries ) {
+                    setTimeout(pollPing, 2100);
+                }
+
+
+
+            });
+      
+        
+    }
+
+
+    //var intervalHandler= window.setInterval(pollPing,1100);
+    pollPing();
+    pollMTR();
+
+ 
+
+
+}
+
+
+</script>
+
+<style>
+    body {
+        background-color:#000000;
+        color:white;
+        font-family: Consolas, "Courier New", Courier, monospace;
+        font-size:14px;
+    }
+    pre {
+        color:#30e050;
+        font-size:14px;
+        line-height: 130%;
+        font-family: Consolas, "Courier New", Courier, monospace;
+    }
+    pre a {
+        color:#104718;
+        text-decoration: underline;
+    }    
+    pre a span {
+        /*dirty trick to change color of underline */
+        color:#30e050;
+        text-decoration: none;
+    }
+
+    #page-div { 
+        /* for html2canvas */
+        background-color: #000000;
+        padding:5px; 
+    }
+    a {
+        color:#f0f0ff;
+    }
+    table {
+        line-height: 0.8em; /*for html2canvas */
+        border-spacing: 0px 0px;
+        font-family: Consolas, "Courier New", Courier, monospace;
+    }
+    td {
+        width:66px;
+        cursor: default;
+        text-align:left;
+        padding-top:0px;
+        padding-bottom:1px;
+        padding-right:7px;
+        padding-left:3px;
+        margin:0px;
+        white-space:nowrap;
+    }
+    td:first-child {
+        width:140px;
+    }
+    td:nth-child(2) {
+        width:150px;
+    }
+    th {
+        padding:0px;
+        padding-right:7px;
+        padding-left:3px;
+        margin:0px;        
+        text-align:left;
+        color:yellow;
+    }
+    tr {
+        margin:0px;
+        padding:0px;
+    }
+</style>
+<div id="page-div" style="width: 1050px; margin-left: 414px;">
+
+<form action="https://ping.pe/ping.php" method="post">
+    Ping: <input id="input_ip" type="text" name="q" value="facebook.com" autofocus="">    <input type="submit" value="Go">
+</form>
+<br>
+<noscript>
+&lt;b style='color:yellow'&gt;Sorry, none of this goodness is possible without javascript. We tried...&lt;/b&gt;
+&lt;br/&gt;&lt;br/&gt;
+</noscript>
+
+Pinging facebook.com, IP: 157.240.17.35  located in <b>United States</b> from multiple locations:<br><br>
+
+
+
+<table id="megatable">
+<tbody><tr>
+    <th>Location</th>
+    <th>ISP</th>
+    <th>Loss</th>
+    <th>Sent</th>
+    <th>Last</th>
+    <th>Avg</th>
+    <th>Best</th>
+    <th>Worst</th>
+    <th>StDev</th>
+    <th>MTR</th>
+    <th>Chart</th>
+</tr>
+
+
+        <tr id="ping-CA_BC_1-tr">
+            <td id="ping-CA_BC_1-location">
+                Canada, BC, Vancouver
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CA_BC_1', 'Canada, BC, Vancouver', 'Telus', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CA_BC_1-provider">
+                Telus
+            </td>
+            <td id="ping-CA_BC_1-loss">0%</td>
+            <td id="ping-CA_BC_1-sent">22</td>
+            <td id="ping-CA_BC_1-last">67.25</td>
+            <td id="ping-CA_BC_1-avg">67.33</td>
+            <td id="ping-CA_BC_1-best">67.11</td>
+            <td id="ping-CA_BC_1-worst">67.84</td>
+            <td id="ping-CA_BC_1-stdev">0.21</td>
+            <td id="ping-CA_BC_1-mtr">
+                <span id="td-CA_BC_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CA_BC_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CA_BC_1-chart" width="100%">
+                <canvas id="canvas-CA_BC_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CA_BC_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CA_BC_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/154.5.253.0"><span>154.5.253.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/192.168.10.1"><span>192.168.10.1</span></a>     95.0%  20    0.1   0.1   0.1   0.1   0.0   -
+2.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/207.216.97.65"><span>207.216.97.65</span></a>    0.0%   20    1.4   1.1   0.7   1.6   0.3   <a target="_blank" href="http://bgp.he.net/AS852" title="ASN852 - TELUS Communications Inc., CA"><span>852   CA ASN852</span></a>                 <span title="207.216.97.65">207.216.97.65</span>
+3.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/75.154.217.108"><span>75.154.217.108</span></a>   0.0%   20    5.4   5.2   4.8   5.7   0.3   -
+4.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/154.11.2.239"><span>154.11.2.239</span></a>     0.0%   20    5.3   5.2   4.7   6.2   0.3   <a target="_blank" href="http://bgp.he.net/AS852" title="ASN852 - TELUS Communications Inc., CA"><span>852   CA ASN852</span></a>                 <span title="154.11.2.239">154.11.2.239</span>
+5.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/65.153.118.118"><span>65.153.118.118</span></a>   0.0%   20    67.1  68.1  66.9  82.6  3.4   <a target="_blank" href="http://bgp.he.net/AS209" title="CENTURYLINK-US-LEGACY-QWEST - Qwest Communications Company, LLC, US"><span>209   US CENTURYLINK-US-LEGACY-QWEST</span></a> <span title="65.153.118.118">65.153.118.118</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.143"><span>157.240.32.143</span></a>   0.0%   20    68.1  67.7  67.2  68.7  0.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw01.dfw4.tfbnw.net">po105.psw01.dfw4.tfbnw.net</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.171"><span>157.240.36.171</span></a>   0.0%   20    67.9  67.7  67.3  68.0  0.2   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.171">157.240.36.171</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    67.7  67.7  67.2  68.8  0.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-CA_BC_2-tr">
+            <td id="ping-CA_BC_2-location">
+                Canada, BC, Vancouver
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CA_BC_2', 'Canada, BC, Vancouver', 'Shaw', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CA_BC_2-provider">
+                Shaw
+            </td>
+            <td id="ping-CA_BC_2-loss">0%</td>
+            <td id="ping-CA_BC_2-sent">20</td>
+            <td id="ping-CA_BC_2-last">74.51</td>
+            <td id="ping-CA_BC_2-avg">76.25</td>
+            <td id="ping-CA_BC_2-best">73.53</td>
+            <td id="ping-CA_BC_2-worst">84.58</td>
+            <td id="ping-CA_BC_2-stdev">3.28</td>
+            <td id="ping-CA_BC_2-mtr">
+                <span id="td-CA_BC_2-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CA_BC_2-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CA_BC_2-chart" width="100%">
+                <canvas id="canvas-CA_BC_2" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CA_BC_2-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CA_BC_2-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/174.1.167.0"><span>174.1.167.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/192.168.20.1"><span>192.168.20.1</span></a>     60.0%  20    0.1   0.1   0.1   0.2   0.0   -
+2.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/174.1.0.1"><span>174.1.0.1</span></a>        5.0%   20    9.7   223.9 7.7   2525. 659.1 <a target="_blank" href="http://bgp.he.net/AS6327" title="SHAW - Shaw Communications Inc., CA"><span>6327  CA SHAW</span></a>                   <span title="174.1.0.1">174.1.0.1</span>
+3.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/64.59.149.173"><span>64.59.149.173</span></a>    0.0%   20    11.3  13.1  11.0  19.1  2.8   <a target="_blank" href="http://bgp.he.net/AS6327" title="SHAW - Shaw Communications Inc., CA"><span>6327  CA SHAW</span></a>                   <span title="rc1st-tge0-9-0-35-1.vc.shawcable.net">rc1st-tge0-9-0-35-1.vc.shawcab</span>
+4.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/66.163.72.69"><span>66.163.72.69</span></a>     0.0%   20    22.9  24.2  22.4  31.0  2.5   <a target="_blank" href="http://bgp.he.net/AS6327" title="SHAW - Shaw Communications Inc., CA"><span>6327  CA SHAW</span></a>                   <span title="rc3no-be11-1.cg.shawcable.net">rc3no-be11-1.cg.shawcable.net</span>
+5.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/66.163.71.118"><span>66.163.71.118</span></a>    0.0%   20    23.3  24.3  22.6  30.0  1.8   <a target="_blank" href="http://bgp.he.net/AS6327" title="SHAW - Shaw Communications Inc., CA"><span>6327  CA SHAW</span></a>                   <span title="rc3so-hge0-19-0-1.cg.shawcable.net">rc3so-hge0-19-0-1.cg.shawcable</span>
+6.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/66.163.65.18"><span>66.163.65.18</span></a>     0.0%   20    56.6  54.5  52.2  60.7  1.8   <a target="_blank" href="http://bgp.he.net/AS6327" title="SHAW - Shaw Communications Inc., CA"><span>6327  CA SHAW</span></a>                   <span title="rc4ec-be13.il.shawcable.net">rc4ec-be13.il.shawcable.net</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/206.223.119.86"><span>206.223.119.86</span></a>   0.0%   20    51.9  56.1  51.9  77.4  5.7   -
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.31.84"><span>64.125.31.84</span></a>     0.0%   20    82.6  87.1  81.1  153.8 16.2  <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae15.cr1.ord2.us.zip.zayo.com">ae15.cr1.ord2.us.zip.zayo.com</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.30.242"><span>64.125.30.242</span></a>    0.0%   20    83.7  84.9  81.1  97.5  5.5   <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae27.cs1.ord2.us.eth.zayo.com">ae27.cs1.ord2.us.eth.zayo.com</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.28.55"><span>64.125.28.55</span></a>     0.0%   20    84.3  83.2  81.1  98.4  3.8   <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae4.cs1.iah1.us.eth.zayo.com">ae4.cs1.iah1.us.eth.zayo.com</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.28.99"><span>64.125.28.99</span></a>     0.0%   20    88.0  85.4  81.3  112.5 7.9   <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae5.cs1.dfw2.us.eth.zayo.com">ae5.cs1.dfw2.us.eth.zayo.com</span>
+12. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.30.181"><span>64.125.30.181</span></a>    0.0%   20    83.1  83.2  81.2  91.3  2.6   <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae27.cr1.dfw2.us.zip.zayo.com">ae27.cr1.dfw2.us.zip.zayo.com</span>
+13. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.125.30.109"><span>64.125.30.109</span></a>    0.0%   20    88.0  84.0  81.2  98.3  4.2   <a target="_blank" href="http://bgp.he.net/AS6461" title="ZAYO-6461 - Zayo Bandwidth, US"><span>6461  US ZAYO-6461</span></a>              <span title="ae12.er4.dfw2.us.zip.zayo.com">ae12.er4.dfw2.us.zip.zayo.com</span>
+14. <span title="Singapore">SG</span> <a target="_blank" href="http://bgp.he.net/ip/103.4.98.30"><span>103.4.98.30</span></a>      0.0%   20    79.9  77.6  72.8  86.0  4.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="ae7.pr06.dfw1.tfbnw.net">ae7.pr06.dfw1.tfbnw.net</span>
+15. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.155"><span>157.240.32.155</span></a>   0.0%   20    75.0  76.6  74.2  83.9  2.6   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw02.dfw4.tfbnw.net">po106.psw02.dfw4.tfbnw.net</span>
+16. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.225"><span>157.240.36.225</span></a>   0.0%   20    74.5  74.9  73.5  79.4  1.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.225">157.240.36.225</span>
+17. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    75.0  74.7  73.2  77.9  1.3   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_WA_1-tr">
+            <td id="ping-US_WA_1-location">
+                USA, WA, Seattle
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_WA_1', 'USA, WA, Seattle', 'PCCW', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_WA_1-provider">
+                PCCW
+            </td>
+            <td id="ping-US_WA_1-loss">0%</td>
+            <td id="ping-US_WA_1-sent">22</td>
+            <td id="ping-US_WA_1-last">59.37</td>
+            <td id="ping-US_WA_1-avg">59.33</td>
+            <td id="ping-US_WA_1-best">59.25</td>
+            <td id="ping-US_WA_1-worst">59.39</td>
+            <td id="ping-US_WA_1-stdev">0.04</td>
+            <td id="ping-US_WA_1-mtr">
+                <span id="td-US_WA_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_WA_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_WA_1-chart" width="100%">
+                <canvas id="canvas-US_WA_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_WA_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_WA_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/63.223.93.0"><span>63.223.93.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/63.223.112.2"><span>63.223.112.2</span></a>     95.0%  20    0.1   0.1   0.1   0.1   0.0   <a target="_blank" href="http://bgp.he.net/AS19194" title="JOVITA - Sentris Network LLC, US"><span>19194 US JOVITA</span></a>                 <span title="cooper.rentvps.com">cooper.rentvps.com</span>
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/63.216.14.61"><span>63.216.14.61</span></a>     0.0%   20    1.2   1.3   0.9   2.3   0.3   <a target="_blank" href="http://bgp.he.net/AS3491" title="BTN-ASN - PCCW Global, Inc., US"><span>3491  US BTN-ASN</span></a>                <span title="Te0-2-0-21-6.cr03.sea01.pccwbtn.net">Te0-2-0-21-6.cr03.sea01.pccwbt</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.68.110.249"><span>4.68.110.249</span></a>     0.0%   20    0.9   0.8   0.7   1.2   0.1   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="lag-6.ear3.Seattle1.Level3.net">lag-6.ear3.Seattle1.Level3.net</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.5"><span>4.69.209.5</span></a>       0.0%   20    56.3  56.3  56.1  56.6  0.1   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-3-3611.edge2.Dallas1.Level3.net">ae-3-3611.edge2.Dallas1.Level3</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    51.9  53.0  50.9  69.0  4.4   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.157"><span>157.240.32.157</span></a>   0.0%   20    51.6  51.6  51.4  52.1  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw03.dfw4.tfbnw.net">po106.psw03.dfw4.tfbnw.net</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.21"><span>157.240.37.21</span></a>    0.0%   20    51.6  51.6  51.5  51.9  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.21">157.240.37.21</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    59.9  60.1  59.9  61.2  0.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_WA_2-tr">
+            <td id="ping-US_WA_2-location">
+                USA, WA, Seattle
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_WA_2', 'USA, WA, Seattle', 'Softlayer', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_WA_2-provider">
+                Softlayer
+            </td>
+            <td id="ping-US_WA_2-loss">0%</td>
+            <td id="ping-US_WA_2-sent">22</td>
+            <td id="ping-US_WA_2-last">42.74</td>
+            <td id="ping-US_WA_2-avg">42.76</td>
+            <td id="ping-US_WA_2-best">42.72</td>
+            <td id="ping-US_WA_2-worst">42.8</td>
+            <td id="ping-US_WA_2-stdev">0.02</td>
+            <td id="ping-US_WA_2-mtr">
+                <span id="td-US_WA_2-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_WA_2-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_WA_2-chart" width="100%">
+                <canvas id="canvas-US_WA_2" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_WA_2-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_WA_2-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/206.217.223.0"><span>206.217.223.0</span></a>    Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/10.28.117.104"><span>10.28.117.104</span></a>    95.0%  20    0.1   0.1   0.1   0.1   0.0   -
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/67.228.118.226"><span>67.228.118.226</span></a>   0.0%   20    0.3   0.3   0.3   0.5   0.0   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae12.dar02.sr01.sea01.networklayer.com">ae12.dar02.sr01.sea01.networkl</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/173.192.18.184"><span>173.192.18.184</span></a>   0.0%   20    0.8   0.8   0.7   1.3   0.1   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae9.bbr02.wb01.sea02.networklayer.com">ae9.bbr02.wb01.sea02.networkla</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/169.45.18.120"><span>169.45.18.120</span></a>    0.0%   20    2.4   2.3   2.0   2.9   0.3   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="78.12.2da9.ip4.static.sl-reverse.com">78.12.2da9.ip4.static.sl-rever</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.17.252"><span>50.97.17.252</span></a>     0.0%   20    27.9  27.0  26.6  28.6  0.5   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="fc.11.6132.ip4.static.sl-reverse.com">fc.11.6132.ip4.static.sl-rever</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.17.90"><span>50.97.17.90</span></a>      35.0%  20    43.3  43.6  42.9  46.4  1.2   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae1.cbs02.eq01.dal03.networklayer.com">ae1.cbs02.eq01.dal03.networkla</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.17.53"><span>50.97.17.53</span></a>      0.0%   20    39.9  41.8  39.9  76.4  8.1   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae33.bbr01.eq01.dal03.networklayer.com">ae33.bbr01.eq01.dal03.networkl</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.16.167"><span>50.97.16.167</span></a>     0.0%   20    40.2  49.7  40.2  76.7  8.9   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="a7.10.6132.ip4.static.sl-reverse.com">a7.10.6132.ip4.static.sl-rever</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.147"><span>157.240.32.147</span></a>   0.0%   20    40.8  40.8  40.7  40.9  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw03.dfw4.tfbnw.net">po105.psw03.dfw4.tfbnw.net</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.27"><span>157.240.37.27</span></a>    0.0%   20    43.1  43.3  43.0  47.7  1.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.27">157.240.37.27</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    42.9  42.8  42.8  42.9  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_CA_1-tr">
+            <td id="ping-US_CA_1-location">
+                USA, CA, Fremont
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_CA_1', 'USA, CA, Fremont', 'Hurricane-fmt2', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_CA_1-provider">
+                Hurricane-fmt2
+            </td>
+            <td id="ping-US_CA_1-loss">0%</td>
+            <td id="ping-US_CA_1-sent">22</td>
+            <td id="ping-US_CA_1-last">37.3</td>
+            <td id="ping-US_CA_1-avg">37.56</td>
+            <td id="ping-US_CA_1-best">37.26</td>
+            <td id="ping-US_CA_1-worst">39.03</td>
+            <td id="ping-US_CA_1-stdev">0.37</td>
+            <td id="ping-US_CA_1-mtr">
+                <span id="td-US_CA_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_CA_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_CA_1-chart" width="100%">
+                <canvas id="canvas-US_CA_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_CA_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_CA_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/216.218.131.0"><span>216.218.131.0</span></a>    Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/64.62.145.33"><span>64.62.145.33</span></a>     0.0%   20    0.7   5.4   0.4   34.0  9.6   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="64.62.145.33">64.62.145.33</span>
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/184.105.223.117"><span>184.105.223.117</span></a>  0.0%   20    0.5   0.7   0.4   1.3   0.3   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="10ge1-1.core3.fmt1.he.net">10ge1-1.core3.fmt1.he.net</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/72.52.92.65"><span>72.52.92.65</span></a>      0.0%   20    1.0   1.2   0.9   2.6   0.4   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="100ge1-2.core1.pao1.he.net">100ge1-2.core1.pao1.he.net</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/184.105.81.238"><span>184.105.81.238</span></a>   0.0%   20    9.0   11.6  8.8   17.5  2.5   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="100ge7-1.core1.lax2.he.net">100ge7-1.core1.lax2.he.net</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/184.105.81.178"><span>184.105.81.178</span></a>   0.0%   20    21.4  24.3  17.7  31.7  3.4   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="100ge4-1.core1.phx2.he.net">100ge4-1.core1.phx2.he.net</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/184.105.81.174"><span>184.105.81.174</span></a>   0.0%   20    37.6  37.3  36.4  44.1  1.7   <a target="_blank" href="http://bgp.he.net/AS6939" title="HURRICANE - Hurricane Electric, Inc., US"><span>6939  US HURRICANE</span></a>              <span title="100ge10-1.core1.dal1.he.net">100ge10-1.core1.dal1.he.net</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/206.53.202.17"><span>206.53.202.17</span></a>    0.0%   20    37.5  38.0  36.8  50.4  3.0   -
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/74.119.77.127"><span>74.119.77.127</span></a>    0.0%   20    37.6  37.6  37.3  39.0  0.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po101.psw02.dfw4.tfbnw.net">po101.psw02.dfw4.tfbnw.net</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.241"><span>157.240.36.241</span></a>   0.0%   20    37.6  37.6  37.3  38.2  0.2   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.241">157.240.36.241</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    37.4  37.6  37.4  39.2  0.4   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_CA_3-tr">
+            <td id="ping-US_CA_3-location">
+                USA, CA, Los Angeles
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_CA_3', 'USA, CA, Los Angeles', 'QuadraNET', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_CA_3-provider">
+                QuadraNET
+            </td>
+            <td id="ping-US_CA_3-loss">0%</td>
+            <td id="ping-US_CA_3-sent">22</td>
+            <td id="ping-US_CA_3-last">30.38</td>
+            <td id="ping-US_CA_3-avg">30.39</td>
+            <td id="ping-US_CA_3-best">30.32</td>
+            <td id="ping-US_CA_3-worst">30.49</td>
+            <td id="ping-US_CA_3-stdev">0.04</td>
+            <td id="ping-US_CA_3-mtr">
+                <span id="td-US_CA_3-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_CA_3-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_CA_3-chart" width="100%">
+                <canvas id="canvas-US_CA_3" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_CA_3-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_CA_3-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/107.161.88.0"><span>107.161.88.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/98.143.148.1"><span>98.143.148.1</span></a>     0.0%   20    0.7   10.2  0.6   90.2  25.8  <a target="_blank" href="http://bgp.he.net/AS8100" title="ASN-QUADRANET-GLOBAL - QuadraNet, Inc, US"><span>8100  US QUADRANET-GLOBAL</span></a>       <span title="98.143.148.1">98.143.148.1</span>
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/96.44.180.101"><span>96.44.180.101</span></a>    0.0%   20    0.4   1.1   0.3   13.2  2.9   <a target="_blank" href="http://bgp.he.net/AS8100" title="ASN-QUADRANET-GLOBAL - QuadraNet, Inc, US"><span>8100  US QUADRANET-GLOBAL</span></a>       <span title="colo-lax6.as8100.net">colo-lax6.as8100.net</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/63.218.212.169"><span>63.218.212.169</span></a>   0.0%   20    1.0   1.1   0.9   2.5   0.3   <a target="_blank" href="http://bgp.he.net/AS3491" title="BTN-ASN - PCCW Global, Inc., US"><span>3491  US BTN-ASN</span></a>                <span title="63-218-212-169.static.pccwglobal.net">63-218-212-169.static.pccwglob</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/63.218.73.218"><span>63.218.73.218</span></a>    80.0%  20    0.9   1.0   0.9   1.0   0.1   <a target="_blank" href="http://bgp.he.net/AS3491" title="BTN-ASN - PCCW Global, Inc., US"><span>3491  US BTN-ASN</span></a>                <span title="63-218-73-218.static.pccwglobal.net">63-218-73-218.static.pccwgloba</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.9"><span>4.69.209.9</span></a>       0.0%   20    33.7  32.5  32.3  33.7  0.3   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-4-3612.edge2.Dallas1.Level3.net">ae-4-3612.edge2.Dallas1.Level3</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    34.5  32.8  29.9  54.0  6.0   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.159"><span>157.240.32.159</span></a>   0.0%   20    30.5  30.6  30.4  30.8  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw04.dfw4.tfbnw.net">po106.psw04.dfw4.tfbnw.net</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.87"><span>157.240.37.87</span></a>    0.0%   20    30.8  30.7  30.6  31.2  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.87">157.240.37.87</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    30.4  30.4  30.3  30.7  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_TX_1-tr">
+            <td id="ping-US_TX_1-location">
+                USA, TX, Dallas
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_TX_1', 'USA, TX, Dallas', 'Softlayer', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_TX_1-provider">
+                Softlayer
+            </td>
+            <td id="ping-US_TX_1-loss">0%</td>
+            <td id="ping-US_TX_1-sent">23</td>
+            <td id="ping-US_TX_1-last">1.99</td>
+            <td id="ping-US_TX_1-avg">1.96</td>
+            <td id="ping-US_TX_1-best">1.9</td>
+            <td id="ping-US_TX_1-worst">2.23</td>
+            <td id="ping-US_TX_1-stdev">0.06</td>
+            <td id="ping-US_TX_1-mtr">
+                <span id="td-US_TX_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_TX_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_TX_1-chart" width="100%">
+                <canvas id="canvas-US_TX_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_TX_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_TX_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/169.54.194.0"><span>169.54.194.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/10.121.211.11"><span>10.121.211.11</span></a>    5.0%   20    0.1   0.1   0.0   0.1   0.0   -
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/198.23.118.130"><span>198.23.118.130</span></a>   0.0%   20    0.5   0.6   0.4   4.6   0.9   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae11.dar01.dal09.networklayer.com">ae11.dar01.dal09.networklayer.</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.17.216"><span>50.97.17.216</span></a>     45.0%  20    2.0   2.1   1.9   2.6   0.3   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae12.cbs01.eq01.dal03.networklayer.com">ae12.cbs01.eq01.dal03.networkl</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.17.53"><span>50.97.17.53</span></a>      0.0%   20    2.2   3.1   1.3   19.4  4.6   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="ae33.bbr01.eq01.dal03.networklayer.com">ae33.bbr01.eq01.dal03.networkl</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.97.16.167"><span>50.97.16.167</span></a>     0.0%   20    1.3   2.2   1.1   10.4  2.1   <a target="_blank" href="http://bgp.he.net/AS36351" title="SOFTLAYER - SoftLayer Technologies Inc., US"><span>36351 US SOFTLAYER</span></a>              <span title="a7.10.6132.ip4.static.sl-reverse.com">a7.10.6132.ip4.static.sl-rever</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.149"><span>157.240.32.149</span></a>   0.0%   20    2.2   2.1   2.0   2.3   0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw04.dfw4.tfbnw.net">po105.psw04.dfw4.tfbnw.net</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.89"><span>157.240.37.89</span></a>    0.0%   20    2.0   2.1   1.9   3.5   0.3   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.89">157.240.37.89</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    2.3   2.1   2.1   2.3   0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_IL_1-tr">
+            <td id="ping-US_IL_1-location">
+                USA, IL, Chicago
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_IL_1', 'USA, IL, Chicago', 'Cogent', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_IL_1-provider">
+                Cogent
+            </td>
+            <td id="ping-US_IL_1-loss">0%</td>
+            <td id="ping-US_IL_1-sent">22</td>
+            <td id="ping-US_IL_1-last">23.99</td>
+            <td id="ping-US_IL_1-avg">24.05</td>
+            <td id="ping-US_IL_1-best">23.24</td>
+            <td id="ping-US_IL_1-worst">28.93</td>
+            <td id="ping-US_IL_1-stdev">1.53</td>
+            <td id="ping-US_IL_1-mtr">
+                <span id="td-US_IL_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_IL_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_IL_1-chart" width="100%">
+                <canvas id="canvas-US_IL_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_IL_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_IL_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.7.8.0"><span>50.7.8.0</span></a>         Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/50.7.8.1"><span>50.7.8.1</span></a>         0.0%   20    0.7   1.5   0.7   3.9   0.9   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="50.7.8.1">50.7.8.1</span>
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/74.63.121.1"><span>74.63.121.1</span></a>      0.0%   20    0.9   1.7   0.6   5.0   1.2   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="74.63.121.1">74.63.121.1</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/38.140.192.17"><span>38.140.192.17</span></a>    0.0%   20    0.9   3.6   0.8   16.5  4.0   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be4563.ccr41.ord01.atlas.cogentco.com">be4563.ccr41.ord01.atlas.cogen</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.42.165"><span>154.54.42.165</span></a>    0.0%   20    14.0  14.3  12.5  30.0  3.9   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2831.ccr21.mci01.atlas.cogentco.com">be2831.ccr21.mci01.atlas.cogen</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.3.133"><span>154.54.3.133</span></a>     0.0%   20    22.8  23.9  22.5  28.6  1.7   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2432.ccr31.dfw01.atlas.cogentco.com">be2432.ccr31.dfw01.atlas.cogen</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/38.142.38.58"><span>38.142.38.58</span></a>     0.0%   20    23.6  24.8  22.6  37.5  3.7   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="38.142.38.58">38.142.38.58</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.147"><span>157.240.32.147</span></a>   0.0%   20    23.4  23.8  23.3  27.3  0.9   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw03.dfw4.tfbnw.net">po105.psw03.dfw4.tfbnw.net</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.41"><span>157.240.37.41</span></a>    0.0%   20    27.2  24.0  23.2  27.2  1.3   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.41">157.240.37.41</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    24.6  24.1  23.3  30.0  1.6   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_GA_1-tr">
+            <td id="ping-US_GA_1-location">
+                USA, GA, Atlanta
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_GA_1', 'USA, GA, Atlanta', '55 Marietta/RamNode', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_GA_1-provider">
+                55 Marietta/RamNode
+            </td>
+            <td id="ping-US_GA_1-loss">0%</td>
+            <td id="ping-US_GA_1-sent">22</td>
+            <td id="ping-US_GA_1-last">18.36</td>
+            <td id="ping-US_GA_1-avg">18.32</td>
+            <td id="ping-US_GA_1-best">18.28</td>
+            <td id="ping-US_GA_1-worst">18.36</td>
+            <td id="ping-US_GA_1-stdev">0.02</td>
+            <td id="ping-US_GA_1-mtr">
+                <span id="td-US_GA_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_GA_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_GA_1-chart" width="100%">
+                <canvas id="canvas-US_GA_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_GA_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_GA_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/192.184.82.0"><span>192.184.82.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.203.221"><span>129.250.203.221</span></a>  0.0%   20    0.3   1.8   0.3   14.7  3.5   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="xe-0-0-25-1.a01.atlnga05.us.bb.gin.ntt.net">xe-0-0-25-1.a01.atlnga05.us.bb</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.57"><span>129.250.5.57</span></a>     0.0%   20    0.6   0.6   0.5   0.9   0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-11.r03.atlnga05.us.bb.gin.ntt.net">ae-11.r03.atlnga05.us.bb.gin.n</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.211"><span>129.250.5.211</span></a>    0.0%   20    0.5   0.6   0.5   0.8   0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-3.r21.atlnga05.us.bb.gin.ntt.net">ae-3.r21.atlnga05.us.bb.gin.nt</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.4.116"><span>129.250.4.116</span></a>    0.0%   20    15.8  16.2  15.8  17.8  0.7   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-6.r23.dllstx09.us.bb.gin.ntt.net">ae-6.r23.dllstx09.us.bb.gin.nt</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.4"><span>129.250.5.4</span></a>      0.0%   20    15.8  15.9  15.8  16.3  0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-6.r10.dllstx09.us.bb.gin.ntt.net">ae-6.r10.dllstx09.us.bb.gin.nt</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/128.241.4.18"><span>128.241.4.18</span></a>     0.0%   20    51.9  33.9  18.1  70.2  12.9  <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-0.facebook.dllstx09.us.bb.gin.ntt.net">ae-0.facebook.dllstx09.us.bb.g</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.147"><span>157.240.32.147</span></a>   0.0%   20    18.6  18.6  18.6  18.7  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw03.dfw4.tfbnw.net">po105.psw03.dfw4.tfbnw.net</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.23"><span>157.240.37.23</span></a>    0.0%   20    18.5  18.6  18.5  18.7  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.23">157.240.37.23</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    18.5  18.5  18.4  18.6  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-US_NY_2-tr">
+            <td id="ping-US_NY_2-location">
+                USA, NY, New York
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'US_NY_2', 'USA, NY, New York', 'Telehouse/RamNode', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-US_NY_2-provider">
+                Telehouse/RamNode
+            </td>
+            <td id="ping-US_NY_2-loss">0%</td>
+            <td id="ping-US_NY_2-sent">22</td>
+            <td id="ping-US_NY_2-last">35.71</td>
+            <td id="ping-US_NY_2-avg">35.74</td>
+            <td id="ping-US_NY_2-best">35.69</td>
+            <td id="ping-US_NY_2-worst">35.9</td>
+            <td id="ping-US_NY_2-stdev">0.04</td>
+            <td id="ping-US_NY_2-mtr">
+                <span id="td-US_NY_2-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-US_NY_2-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-US_NY_2-chart" width="100%">
+                <canvas id="canvas-US_NY_2" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-US_NY_2-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-US_NY_2-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/168.235.67.0"><span>168.235.67.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="Europe">EU</span> <a target="_blank" href="http://bgp.he.net/ip/62.115.47.29"><span>62.115.47.29</span></a>     0.0%   20    0.5   1.2   0.3   9.5   2.1   <a target="_blank" href="http://bgp.he.net/AS1299" title="TELIANET Telia Carrier, SE"><span>1299  SE TELIANET</span></a>               <span title="nyk-b6-link.telia.net">nyk-b6-link.telia.net</span>
+3.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.9"><span>4.69.209.9</span></a>       0.0%   20    37.5  37.8  37.5  42.6  1.1   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-4-3612.edge2.Dallas1.Level3.net">ae-4-3612.edge2.Dallas1.Level3</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    38.9  43.2  38.1  55.6  6.5   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.153"><span>157.240.32.153</span></a>   0.0%   20    38.7  38.6  38.5  38.8  0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw01.dfw4.tfbnw.net">po106.psw01.dfw4.tfbnw.net</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.177"><span>157.240.36.177</span></a>   0.0%   20    35.8  35.8  35.7  35.9  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.177">157.240.36.177</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    35.7  35.7  35.7  35.9  0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-EU_NL_3-tr">
+            <td id="ping-EU_NL_3-location">
+                Netherlands, Nuland
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'EU_NL_3', 'Netherlands, Nuland', 'WeservIT/RamNode', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-EU_NL_3-provider">
+                WeservIT/RamNode
+            </td>
+            <td id="ping-EU_NL_3-loss">0%</td>
+            <td id="ping-EU_NL_3-sent">21</td>
+            <td id="ping-EU_NL_3-last">119.27</td>
+            <td id="ping-EU_NL_3-avg">119.4</td>
+            <td id="ping-EU_NL_3-best">119.27</td>
+            <td id="ping-EU_NL_3-worst">119.58</td>
+            <td id="ping-EU_NL_3-stdev">0.09</td>
+            <td id="ping-EU_NL_3-mtr">
+                <span id="td-EU_NL_3-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-EU_NL_3-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-EU_NL_3-chart" width="100%">
+                <canvas id="canvas-EU_NL_3" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-EU_NL_3-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-EU_NL_3-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Netherlands">NL</span> <a target="_blank" href="http://bgp.he.net/ip/81.4.125.0"><span>81.4.125.0</span></a>       Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="France">FR</span> <a target="_blank" href="http://bgp.he.net/ip/149.6.110.33"><span>149.6.110.33</span></a>     0.0%   20    1.0   1.2   0.7   2.9   0.6   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="te0-0-2-3.nr11.b061555-0.rtm01.atlas.cogentco.com">te0-0-2-3.nr11.b061555-0.rtm01</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.25.10.129"><span>154.25.10.129</span></a>    0.0%   20    1.3   1.2   1.1   1.3   0.1   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="154.25.10.129">154.25.10.129</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.39.217"><span>154.54.39.217</span></a>    0.0%   20    7.4   7.4   7.2   7.6   0.1   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be3382.ccr41.lon13.atlas.cogentco.com">be3382.ccr41.lon13.atlas.cogen</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.1.117"><span>154.54.1.117</span></a>     0.0%   20    69.6  69.5  69.3  69.7  0.1   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2982.ccr31.bos01.atlas.cogentco.com">be2982.ccr31.bos01.atlas.cogen</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.43.10"><span>154.54.43.10</span></a>     0.0%   20    73.3  73.4  73.2  74.8  0.3   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2299.ccr21.alb02.atlas.cogentco.com">be2299.ccr21.alb02.atlas.cogen</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.26.129"><span>154.54.26.129</span></a>    0.0%   20    84.3  84.6  84.3  86.3  0.4   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2878.ccr21.cle04.atlas.cogentco.com">be2878.ccr21.cle04.atlas.cogen</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.6.221"><span>154.54.6.221</span></a>     0.0%   20    91.7  91.7  91.5  92.1  0.2   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2717.ccr41.ord01.atlas.cogentco.com">be2717.ccr41.ord01.atlas.cogen</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.42.165"><span>154.54.42.165</span></a>    0.0%   20    103.6 103.8 103.6 104.1 0.2   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2831.ccr21.mci01.atlas.cogentco.com">be2831.ccr21.mci01.atlas.cogen</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.3.133"><span>154.54.3.133</span></a>     0.0%   20    113.9 113.7 113.4 114.0 0.2   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2432.ccr31.dfw01.atlas.cogentco.com">be2432.ccr31.dfw01.atlas.cogen</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/38.142.38.58"><span>38.142.38.58</span></a>     0.0%   20    118.9 121.4 118.7 147.6 6.9   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="38.142.38.58">38.142.38.58</span>
+12. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.149"><span>157.240.32.149</span></a>   0.0%   20    119.1 119.0 118.9 119.5 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw04.dfw4.tfbnw.net">po105.psw04.dfw4.tfbnw.net</span>
+13. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.69"><span>157.240.37.69</span></a>    0.0%   20    119.8 119.7 119.5 119.9 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.69">157.240.37.69</span>
+14. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    119.5 119.5 119.4 119.6 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-EU_LU_1-tr">
+            <td id="ping-EU_LU_1-location">
+                Luxembourg, Roost
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'EU_LU_1', 'Luxembourg, Roost', 'Root.lu/BuyVM', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-EU_LU_1-provider">
+                Root.lu/BuyVM
+            </td>
+            <td id="ping-EU_LU_1-loss">0%</td>
+            <td id="ping-EU_LU_1-sent">21</td>
+            <td id="ping-EU_LU_1-last">116.1</td>
+            <td id="ping-EU_LU_1-avg">117.1</td>
+            <td id="ping-EU_LU_1-best">116.04</td>
+            <td id="ping-EU_LU_1-worst">131.11</td>
+            <td id="ping-EU_LU_1-stdev">3.27</td>
+            <td id="ping-EU_LU_1-mtr">
+                <span id="td-EU_LU_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-EU_LU_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-EU_LU_1-chart" width="100%">
+                <canvas id="canvas-EU_LU_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-EU_LU_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-EU_LU_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Luxembourg">LU</span> <a target="_blank" href="http://bgp.he.net/ip/104.244.75.0"><span>104.244.75.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Luxembourg">LU</span> <a target="_blank" href="http://bgp.he.net/ip/107.189.0.105"><span>107.189.0.105</span></a>    90.0%  20    0.1   0.1   0.1   0.1   0.0   <a target="_blank" href="http://bgp.he.net/AS53667" title="PONYNET - FranTech Solutions, US"><span>53667 US PONYNET</span></a>                <span title="107.189.0.105">107.189.0.105</span>
+2.  <span title="Luxembourg">LU</span> <a target="_blank" href="http://bgp.he.net/ip/104.244.73.1"><span>104.244.73.1</span></a>     0.0%   20    0.4   0.5   0.3   1.1   0.2   <a target="_blank" href="http://bgp.he.net/AS53667" title="PONYNET - FranTech Solutions, US"><span>53667 US PONYNET</span></a>                <span title="104.244.73.1">104.244.73.1</span>
+3.  <span title="Luxembourg">LU</span> <a target="_blank" href="http://bgp.he.net/ip/94.242.235.97"><span>94.242.235.97</span></a>    0.0%   20    6.0   2.4   0.4   20.2  4.5   <a target="_blank" href="http://bgp.he.net/AS5577" title="ROOT, LU"><span>5577  LU ROOT, </span></a>                 <span title="ip-static-94-242-235-97.server.lu">ip-static-94-242-235-97.server</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/149.6.66.249"><span>149.6.66.249</span></a>     0.0%   20    0.7   0.9   0.6   2.2   0.4   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="te0-3-1-11.207.nr51.b038844-0.lux01.atlas.cogentco.com">te0-3-1-11.207.nr51.b038844-0.</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.25.12.69"><span>154.25.12.69</span></a>     0.0%   20    1.5   1.9   1.5   3.7   0.5   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be3456.rcr21.lux01.atlas.cogentco.com">be3456.rcr21.lux01.atlas.cogen</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.78.93"><span>154.54.78.93</span></a>     0.0%   20    8.4   8.5   8.3   9.8   0.3   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2380.ccr41.par01.atlas.cogentco.com">be2380.ccr41.par01.atlas.cogen</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.56.129"><span>154.54.56.129</span></a>    0.0%   20    16.0  15.9  15.5  16.6  0.3   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be12497.ccr41.lon13.atlas.cogentco.com">be12497.ccr41.lon13.atlas.coge</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.1.117"><span>154.54.1.117</span></a>     0.0%   20    77.6  78.3  77.5  84.5  1.5   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2982.ccr31.bos01.atlas.cogentco.com">be2982.ccr31.bos01.atlas.cogen</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.43.10"><span>154.54.43.10</span></a>     0.0%   20    81.7  81.8  81.7  82.5  0.2   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2299.ccr21.alb02.atlas.cogentco.com">be2299.ccr21.alb02.atlas.cogen</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.26.129"><span>154.54.26.129</span></a>    0.0%   20    92.7  93.2  92.5  95.2  0.8   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2878.ccr21.cle04.atlas.cogentco.com">be2878.ccr21.cle04.atlas.cogen</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.6.221"><span>154.54.6.221</span></a>     0.0%   20    100.1 100.5 100.0 103.3 0.7   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2717.ccr41.ord01.atlas.cogentco.com">be2717.ccr41.ord01.atlas.cogen</span>
+12. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.42.165"><span>154.54.42.165</span></a>    0.0%   20    111.9 112.3 111.7 114.0 0.7   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2831.ccr21.mci01.atlas.cogentco.com">be2831.ccr21.mci01.atlas.cogen</span>
+13. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/154.54.3.133"><span>154.54.3.133</span></a>     0.0%   20    122.9 122.3 121.7 125.8 0.9   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="be2432.ccr31.dfw01.atlas.cogentco.com">be2432.ccr31.dfw01.atlas.cogen</span>
+14. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/38.142.38.58"><span>38.142.38.58</span></a>     0.0%   20    115.7 118.2 115.4 141.1 6.3   <a target="_blank" href="http://bgp.he.net/AS174" title="COGENT-174 - Cogent Communications, US"><span>174   US COGENT-174</span></a>             <span title="38.142.38.58">38.142.38.58</span>
+15. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.143"><span>157.240.32.143</span></a>   0.0%   20    116.6 116.7 116.2 120.1 0.9   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw01.dfw4.tfbnw.net">po105.psw01.dfw4.tfbnw.net</span>
+16. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.187"><span>157.240.36.187</span></a>   5.0%   20    116.4 116.4 116.2 116.7 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.187">157.240.36.187</span>
+17. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    116.1 116.3 116.1 117.0 0.2   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-EU_DE_2-tr">
+            <td id="ping-EU_DE_2-location">
+                Germany, Bochum
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'EU_DE_2', 'Germany, Bochum', 'ProviderService', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-EU_DE_2-provider">
+                ProviderService
+            </td>
+            <td id="ping-EU_DE_2-loss">0%</td>
+            <td id="ping-EU_DE_2-sent">21</td>
+            <td id="ping-EU_DE_2-last">122.57</td>
+            <td id="ping-EU_DE_2-avg">122.6</td>
+            <td id="ping-EU_DE_2-best">122.57</td>
+            <td id="ping-EU_DE_2-worst">122.64</td>
+            <td id="ping-EU_DE_2-stdev">0.02</td>
+            <td id="ping-EU_DE_2-mtr">
+                <span id="td-EU_DE_2-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-EU_DE_2-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-EU_DE_2-chart" width="100%">
+                <canvas id="canvas-EU_DE_2" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-EU_DE_2-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-EU_DE_2-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Germany">DE</span> <a target="_blank" href="http://bgp.he.net/ip/80.83.115.0"><span>80.83.115.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Germany">DE</span> <a target="_blank" href="http://bgp.he.net/ip/5.45.181.226"><span>5.45.181.226</span></a>     95.0%  20    0.1   0.1   0.1   0.1   0.0   <a target="_blank" href="http://bgp.he.net/AS29141" title="BKVG-AS, DE"><span>29141 DE BKVG, </span></a>                 <span title="5.45.181.226">5.45.181.226</span>
+2.  <span title="United Kingdom">GB</span> <a target="_blank" href="http://bgp.he.net/ip/212.162.17.189"><span>212.162.17.189</span></a>   0.0%   20    0.5   0.5   0.4   1.2   0.2   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="dialup-212.162.17.189.frankfurt1.mik.net">dialup-212.162.17.189.frankfur</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.9"><span>4.69.209.9</span></a>       0.0%   20    121.7 121.7 121.7 121.8 0.0   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-4-3612.edge2.Dallas1.Level3.net">ae-4-3612.edge2.Dallas1.Level3</span>
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    122.3 123.3 122.1 133.7 2.6   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.157"><span>157.240.32.157</span></a>   0.0%   20    122.9 122.8 122.7 122.9 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw03.dfw4.tfbnw.net">po106.psw03.dfw4.tfbnw.net</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.43"><span>157.240.37.43</span></a>    0.0%   20    122.8 122.9 122.8 123.0 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.43">157.240.37.43</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    0.0%   20    122.7 122.8 122.7 123.0 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-EU_IT_1-tr">
+            <td id="ping-EU_IT_1-location">
+                Italy, Milan
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'EU_IT_1', 'Italy, Milan', 'Prometeus', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-EU_IT_1-provider">
+                Prometeus
+            </td>
+            <td id="ping-EU_IT_1-loss">0%</td>
+            <td id="ping-EU_IT_1-sent">20</td>
+            <td id="ping-EU_IT_1-last">127.49</td>
+            <td id="ping-EU_IT_1-avg">127.65</td>
+            <td id="ping-EU_IT_1-best">127.46</td>
+            <td id="ping-EU_IT_1-worst">129.07</td>
+            <td id="ping-EU_IT_1-stdev">0.39</td>
+            <td id="ping-EU_IT_1-mtr">
+                <span id="td-EU_IT_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-EU_IT_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-EU_IT_1-chart" width="100%">
+                <canvas id="canvas-EU_IT_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-EU_IT_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-EU_IT_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Italy">IT</span> <a target="_blank" href="http://bgp.he.net/ip/192.165.67.0"><span>192.165.67.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Italy">IT</span> <a target="_blank" href="http://bgp.he.net/ip/192.165.67.4"><span>192.165.67.4</span></a>     70.0%  20    0.7   0.7   0.7   0.8   0.1   <a target="_blank" href="http://bgp.he.net/AS34971" title="PDDA-AS, CZ"><span>34971 CZ PDDA, </span></a>                 <span title="pm40.prometeus.net">pm40.prometeus.net</span>
+2.  <span title="Italy">IT</span> <a target="_blank" href="http://bgp.he.net/ip/217.171.38.129"><span>217.171.38.129</span></a>   0.0%   20    0.3   0.5   0.2   4.9   1.0   <a target="_blank" href="http://bgp.he.net/AS20836" title="CDLAN-AS Milano, IT"><span>20836 IT CDLAN-AS</span></a>               <span title="217.171.38.129">217.171.38.129</span>
+3.  <span title="Italy">IT</span> <a target="_blank" href="http://bgp.he.net/ip/217.171.32.221"><span>217.171.32.221</span></a>   0.0%   20    0.3   0.8   0.2   7.1   1.5   <a target="_blank" href="http://bgp.he.net/AS20836" title="CDLAN-AS Milano, IT"><span>20836 IT CDLAN-AS</span></a>               <span title="gin-cam.cdlan.net">gin-cam.cdlan.net</span>
+4.  <span title="United Kingdom">GB</span> <a target="_blank" href="http://bgp.he.net/ip/213.242.125.41"><span>213.242.125.41</span></a>   0.0%   20    0.5   0.6   0.4   1.2   0.2   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="213.242.125.41">213.242.125.41</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.5"><span>4.69.209.5</span></a>       0.0%   20    127.2 126.9 126.5 128.9 0.5   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-3-3611.edge2.Dallas1.Level3.net">ae-3-3611.edge2.Dallas1.Level3</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    127.1 128.5 127.0 139.9 3.4   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.155"><span>157.240.32.155</span></a>   0.0%   20    127.8 128.2 127.6 136.9 2.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw02.dfw4.tfbnw.net">po106.psw02.dfw4.tfbnw.net</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.36.245"><span>157.240.36.245</span></a>   0.0%   20    127.7 128.1 127.7 134.4 1.5   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.36.245">157.240.36.245</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    127.7 128.0 127.6 134.2 1.5   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-RU_MSK_1-tr">
+            <td id="ping-RU_MSK_1-location">
+                Russia, Moscow
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'RU_MSK_1', 'Russia, Moscow', 'WebDC/FirstVDS', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-RU_MSK_1-provider">
+                WebDC/FirstVDS
+            </td>
+            <td id="ping-RU_MSK_1-loss">0%</td>
+            <td id="ping-RU_MSK_1-sent">20</td>
+            <td id="ping-RU_MSK_1-last">166.04</td>
+            <td id="ping-RU_MSK_1-avg">165.73</td>
+            <td id="ping-RU_MSK_1-best">164.57</td>
+            <td id="ping-RU_MSK_1-worst">167.34</td>
+            <td id="ping-RU_MSK_1-stdev">0.66</td>
+            <td id="ping-RU_MSK_1-mtr">
+                <span id="td-RU_MSK_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-RU_MSK_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-RU_MSK_1-chart" width="100%">
+                <canvas id="canvas-RU_MSK_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-RU_MSK_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-RU_MSK_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/62.109.8.0"><span>62.109.8.0</span></a>       Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/188.120.240.140"><span>188.120.240.140</span></a>  85.0%  20    0.0   0.0   0.0   0.1   0.0   <a target="_blank" href="http://bgp.he.net/AS29182" title="ISPSYSTEM-AS, LU"><span>29182 LU ISPSYSTEM, </span></a>            <span title="ceres-6.hoztnode.net">ceres-6.hoztnode.net</span>
+2.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/92.63.108.22"><span>92.63.108.22</span></a>     70.0%  20    1.5   1.2   0.7   1.6   0.4   <a target="_blank" href="http://bgp.he.net/AS29182" title="ISPSYSTEM-AS, LU"><span>29182 LU ISPSYSTEM, </span></a>            <span title="zapret.hoztnode.net">zapret.hoztnode.net</span>
+3.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/92.63.108.21"><span>92.63.108.21</span></a>     0.0%   20    9.6   7.4   0.8   20.8  5.5   <a target="_blank" href="http://bgp.he.net/AS29182" title="ISPSYSTEM-AS, LU"><span>29182 LU ISPSYSTEM, </span></a>            <span title="zapret.hoztnode.net">zapret.hoztnode.net</span>
+4.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/109.239.134.29"><span>109.239.134.29</span></a>   0.0%   20    3.0   3.0   1.8   4.3   0.7   <a target="_blank" href="http://bgp.he.net/AS31500" title="GLOBALNET-AS, RU"><span>31500 RU GLOBALNET, </span></a>            <span title="109.239.134.29">109.239.134.29</span>
+5.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/94.124.180.30"><span>94.124.180.30</span></a>    0.0%   20    24.1  24.4  23.1  25.8  0.8   <a target="_blank" href="http://bgp.he.net/AS31500" title="GLOBALNET-AS, RU"><span>31500 RU GLOBALNET, </span></a>            <span title="vuztelecom-gw.gblnet.ru">vuztelecom-gw.gblnet.ru</span>
+6.  <span title="Spain">ES</span> <a target="_blank" href="http://bgp.he.net/ip/212.73.250.33"><span>212.73.250.33</span></a>    0.0%   20    22.9  22.9  22.1  23.8  0.4   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="xe-8-3-0-2015.bar1.Stockholm1.Level3.net">xe-8-3-0-2015.bar1.Stockholm1.</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.9"><span>4.69.209.9</span></a>       0.0%   20    162.9 163.8 161.9 171.8 2.0   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-4-3612.edge2.Dallas1.Level3.net">ae-4-3612.edge2.Dallas1.Level3</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     0.0%   20    161.9 163.4 161.9 170.4 2.3   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.159"><span>157.240.32.159</span></a>   0.0%   20    162.2 162.4 161.6 164.9 0.8   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw04.dfw4.tfbnw.net">po106.psw04.dfw4.tfbnw.net</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.85"><span>157.240.37.85</span></a>    0.0%   20    162.5 162.7 161.2 164.9 0.8   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.85">157.240.37.85</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    165.6 165.8 164.6 166.5 0.5   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-RU_TSK_1-tr">
+            <td id="ping-RU_TSK_1-location">
+                Russia, Tomsk
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'RU_TSK_1', 'Russia, Tomsk', 'Tomgate/Berihoster', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-RU_TSK_1-provider">
+                Tomgate/Berihoster
+            </td>
+            <td id="ping-RU_TSK_1-loss">0%</td>
+            <td id="ping-RU_TSK_1-sent">20</td>
+            <td id="ping-RU_TSK_1-last">223.84</td>
+            <td id="ping-RU_TSK_1-avg">223.67</td>
+            <td id="ping-RU_TSK_1-best">223.46</td>
+            <td id="ping-RU_TSK_1-worst">224.21</td>
+            <td id="ping-RU_TSK_1-stdev">0.21</td>
+            <td id="ping-RU_TSK_1-mtr">
+                <span id="td-RU_TSK_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-RU_TSK_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-RU_TSK_1-chart" width="100%">
+                <canvas id="canvas-RU_TSK_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-RU_TSK_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-RU_TSK_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/31.24.29.0"><span>31.24.29.0</span></a>       Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/31.24.30.3"><span>31.24.30.3</span></a>       90.0%  20    0.0   0.1   0.0   0.1   0.0   <a target="_blank" href="http://bgp.he.net/AS39701" title="SKYLINE-AS Internet Service Provider, Tomsk, Russia, RU"><span>39701 RU SKYLINE-AS</span></a>             <span title="31.24.30.3">31.24.30.3</span>
+2.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/31.24.24.218"><span>31.24.24.218</span></a>     90.0%  20    0.5   0.4   0.3   0.5   0.1   <a target="_blank" href="http://bgp.he.net/AS39701" title="SKYLINE-AS Internet Service Provider, Tomsk, Russia, RU"><span>39701 RU SKYLINE-AS</span></a>             <span title="n4ru-vl208.keytele.com">n4ru-vl208.keytele.com</span>
+3.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/82.117.167.67"><span>82.117.167.67</span></a>    0.0%   20    0.7   3.0   0.5   36.7  8.2   <a target="_blank" href="http://bgp.he.net/AS31036" title="NEWTELESYSTEMS, RU"><span>31036 RU NEWTELESYSTEMS, </span></a>       <span title="82-117-167-067.nts.su">82-117-167-067.nts.su</span>
+4.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/212.188.22.73"><span>212.188.22.73</span></a>    0.0%   20    3.9   4.4   3.6   6.4   0.9   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="bhm-cr01-ae10.41.nsk.stream-internet.net">bhm-cr01-ae10.41.nsk.stream-in</span>
+5.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/195.34.50.153"><span>195.34.50.153</span></a>    0.0%   20    25.3  25.8  24.9  33.4  1.9   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="psshag-cr01-ae12.74.chel.stream-internet.net">psshag-cr01-ae12.74.chel.strea</span>
+6.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/195.34.50.90"><span>195.34.50.90</span></a>     0.0%   20    27.4  27.3  27.1  27.7  0.2   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="zoo-cr01-be13.74.ekt.stream-internet.net">zoo-cr01-be13.74.ekt.stream-in</span>
+7.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/212.188.29.85"><span>212.188.29.85</span></a>    0.0%   20    43.1  43.1  42.8  43.6  0.2   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="pob-cr02-be7.66.kaz.stream-internet.net">pob-cr02-be7.66.kaz.stream-int</span>
+8.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/195.34.50.161"><span>195.34.50.161</span></a>    0.0%   20    55.1  54.8  54.4  56.1  0.4   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="mag9-cr01-be6.16.msk.stream-internet.net">mag9-cr01-be6.16.msk.stream-in</span>
+9.  <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/212.188.2.37"><span>212.188.2.37</span></a>     0.0%   20    66.4  66.5  66.1  67.8  0.4   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="oct-cr03-be1.78.spb.stream-internet.net">oct-cr03-be1.78.spb.stream-int</span>
+10. <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/212.188.54.2"><span>212.188.54.2</span></a>     0.0%   20    70.6  70.8  70.5  73.1  0.6   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="kivi-cr01-ae8.78.hel.stream-internet.net">kivi-cr01-ae8.78.hel.stream-in</span>
+11. <span title="Russian Federation">RU</span> <a target="_blank" href="http://bgp.he.net/ip/212.188.29.18"><span>212.188.29.18</span></a>    0.0%   20    70.2  70.3  69.9  71.7  0.5   <a target="_blank" href="http://bgp.he.net/AS8359" title="MTS, RU"><span>8359  RU MTS, </span></a>                  <span title="radio-cr01-ae2.135.hel.stream-internet.net">radio-cr01-ae2.135.hel.stream-</span>
+12. <span title="United Kingdom">GB</span> <a target="_blank" href="http://bgp.he.net/ip/213.242.110.181"><span>213.242.110.181</span></a>  85.0%  20    76.5  76.6  76.5  76.6  0.0   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="lag-106.ear1.Stockholm2.Level3.net">lag-106.ear1.Stockholm2.Level3</span>
+13. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.69.209.5"><span>4.69.209.5</span></a>       0.0%   20    222.7 223.1 222.6 227.6 1.1   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="ae-3-3611.edge2.Dallas1.Level3.net">ae-3-3611.edge2.Dallas1.Level3</span>
+14. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/4.71.220.142"><span>4.71.220.142</span></a>     5.0%   20    223.5 224.2 223.0 229.5 1.7   <a target="_blank" href="http://bgp.he.net/AS3356" title="LEVEL3 - Level 3 Communications, Inc., US"><span>3356  US LEVEL3</span></a>                 <span title="4.71.220.142">4.71.220.142</span>
+15. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.157"><span>157.240.32.157</span></a>   5.0%   20    224.4 224.6 224.3 225.3 0.3   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw03.dfw4.tfbnw.net">po106.psw03.dfw4.tfbnw.net</span>
+16. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.15"><span>157.240.37.15</span></a>    5.0%   20    224.1 223.9 223.8 224.2 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.15">157.240.37.15</span>
+17. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    223.9 223.8 223.5 224.3 0.2   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-SG_1-tr">
+            <td id="ping-SG_1-location">
+                Singapore
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'SG_1', 'Singapore', 'Digital Ocean', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-SG_1-provider">
+                Digital Ocean
+            </td>
+            <td id="ping-SG_1-loss">0%</td>
+            <td id="ping-SG_1-sent">17</td>
+            <td id="ping-SG_1-last">200.73</td>
+            <td id="ping-SG_1-avg">200.72</td>
+            <td id="ping-SG_1-best">200.66</td>
+            <td id="ping-SG_1-worst">201.05</td>
+            <td id="ping-SG_1-stdev">0.08</td>
+            <td id="ping-SG_1-mtr">
+                <span id="td-SG_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-SG_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-SG_1-chart" width="100%">
+                <canvas id="canvas-SG_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-SG_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-SG_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Singapore">SG</span> <a target="_blank" href="http://bgp.he.net/ip/128.199.126.0"><span>128.199.126.0</span></a>    Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="Singapore">SG</span> <a target="_blank" href="http://bgp.he.net/ip/128.199.127.253"><span>128.199.127.253</span></a>  0.0%   20    0.3   1.9   0.2   5.2   1.7   <a target="_blank" href="http://bgp.he.net/AS14061" title="DIGITALOCEAN-ASN - DigitalOcean, LLC, US"><span>14061 US DIGITALOCEAN-ASN</span></a>       <span title="128.199.127.253">128.199.127.253</span>
+2.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/138.197.250.206"><span>138.197.250.206</span></a>  0.0%   20    0.3   0.3   0.3   0.5   0.1   -
+3.  <span title="Canada">CA</span> <a target="_blank" href="http://bgp.he.net/ip/138.197.245.14"><span>138.197.245.14</span></a>   0.0%   20    0.8   1.8   0.6   20.5  4.4   -
+4.  <span title="Singapore">SG</span> <a target="_blank" href="http://bgp.he.net/ip/116.51.17.193"><span>116.51.17.193</span></a>    0.0%   20    0.6   1.7   0.6   5.1   1.3   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-2.a01.sngpsi07.sg.bb.gin.ntt.net">ae-2.a01.sngpsi07.sg.bb.gin.nt</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.2.123"><span>129.250.2.123</span></a>    0.0%   20    0.9   0.9   0.8   1.4   0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-5.r00.sngpsi07.sg.bb.gin.ntt.net">ae-5.r00.sngpsi07.sg.bb.gin.nt</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.3.83"><span>129.250.3.83</span></a>     0.0%   20    1.1   1.7   0.9   7.9   1.9   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-1.r20.sngpsi07.sg.bb.gin.ntt.net">ae-1.r20.sngpsi07.sg.bb.gin.nt</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.4.33"><span>129.250.4.33</span></a>     0.0%   20    12.0  2.8   0.8   12.0  3.3   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-7.r20.sngpsi05.sg.bb.gin.ntt.net">ae-7.r20.sngpsi05.sg.bb.gin.nt</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.3.48"><span>129.250.3.48</span></a>     0.0%   20    181.7 182.2 181.6 187.0 1.3   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-8.r22.snjsca04.us.bb.gin.ntt.net">ae-8.r22.snjsca04.us.bb.gin.nt</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.2.183"><span>129.250.2.183</span></a>    0.0%   20    166.4 168.1 166.3 171.3 1.9   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-0.r23.snjsca04.us.bb.gin.ntt.net">ae-0.r23.snjsca04.us.bb.gin.nt</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.4.155"><span>129.250.4.155</span></a>    0.0%   20    219.5 212.8 209.0 227.8 4.4   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-7.r23.dllstx09.us.bb.gin.ntt.net">ae-7.r23.dllstx09.us.bb.gin.nt</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.24"><span>129.250.5.24</span></a>     0.0%   20    205.6 205.6 205.5 205.8 0.0   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-5.r11.dllstx09.us.bb.gin.ntt.net">ae-5.r11.dllstx09.us.bb.gin.nt</span>
+12. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/128.241.4.34"><span>128.241.4.34</span></a>     0.0%   20    201.1 202.5 200.1 212.3 4.0   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-2.facebook.dllstx09.us.bb.gin.ntt.net">ae-2.facebook.dllstx09.us.bb.g</span>
+13. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.157"><span>157.240.32.157</span></a>   5.0%   20    201.0 201.0 200.9 201.3 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po106.psw03.dfw4.tfbnw.net">po106.psw03.dfw4.tfbnw.net</span>
+14. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.11"><span>157.240.37.11</span></a>    5.0%   20    201.0 201.0 200.9 201.2 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.11">157.240.37.11</span>
+15. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    200.7 200.7 200.6 200.8 0.0   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-JP_1-tr">
+            <td id="ping-JP_1-location">
+                Japan, Tokyo
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'JP_1', 'Japan, Tokyo', 'Vultr', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-JP_1-provider">
+                Vultr
+            </td>
+            <td id="ping-JP_1-loss">0%</td>
+            <td id="ping-JP_1-sent">20</td>
+            <td id="ping-JP_1-last">148.11</td>
+            <td id="ping-JP_1-avg">148.11</td>
+            <td id="ping-JP_1-best">148.03</td>
+            <td id="ping-JP_1-worst">148.2</td>
+            <td id="ping-JP_1-stdev">0.04</td>
+            <td id="ping-JP_1-mtr">
+                <span id="td-JP_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-JP_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-JP_1-chart" width="100%">
+                <canvas id="canvas-JP_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-JP_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-JP_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Japan">JP</span> <a target="_blank" href="http://bgp.he.net/ip/45.77.19.0"><span>45.77.19.0</span></a>       Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="Japan">JP</span> <a target="_blank" href="http://bgp.he.net/ip/209.222.31.1"><span>209.222.31.1</span></a>     0.0%   20    12.2  16.4  11.8  22.4  3.7   <a target="_blank" href="http://bgp.he.net/AS20473" title="AS-CHOOPA - Choopa, LLC, US"><span>20473 US CHOOPA</span></a>                 <span title="vl199-ds1-j2-r237.tyo2.choopa.net">vl199-ds1-j2-r237.tyo2.choopa.</span>
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/45.76.201.85"><span>45.76.201.85</span></a>     0.0%   20    1.3   2.3   0.9   5.9   1.8   <a target="_blank" href="http://bgp.he.net/AS20473" title="AS-CHOOPA - Choopa, LLC, US"><span>20473 US CHOOPA</span></a>                 <span title="vl626-br2-cer.tyo1.choopa.net">vl626-br2-cer.tyo1.choopa.net</span>
+4.  <span title="Japan">JP</span> <a target="_blank" href="http://bgp.he.net/ip/120.88.53.65"><span>120.88.53.65</span></a>     0.0%   20    2.0   2.1   1.9   2.4   0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-12.r01.tokyjp05.jp.bb.gin.ntt.net">ae-12.r01.tokyjp05.jp.bb.gin.n</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.7.84"><span>129.250.7.84</span></a>     0.0%   20    3.0   2.6   1.8   4.5   0.9   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-7.r30.tokyjp05.jp.bb.gin.ntt.net">ae-7.r30.tokyjp05.jp.bb.gin.nt</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.78"><span>129.250.5.78</span></a>     0.0%   20    108.3 108.6 108.3 110.7 0.6   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-4.r23.snjsca04.us.bb.gin.ntt.net">ae-4.r23.snjsca04.us.bb.gin.nt</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.4.155"><span>129.250.4.155</span></a>    0.0%   20    147.4 148.7 147.3 161.0 3.5   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-7.r23.dllstx09.us.bb.gin.ntt.net">ae-7.r23.dllstx09.us.bb.gin.nt</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.5.4"><span>129.250.5.4</span></a>      0.0%   20    147.6 147.5 147.3 147.7 0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-6.r10.dllstx09.us.bb.gin.ntt.net">ae-6.r10.dllstx09.us.bb.gin.nt</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/128.241.4.30"><span>128.241.4.30</span></a>     0.0%   20    153.6 151.4 146.2 187.3 9.7   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-1.facebook.dllstx09.us.bb.gin.ntt.net">ae-1.facebook.dllstx09.us.bb.g</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.147"><span>157.240.32.147</span></a>   0.0%   20    148.0 148.2 148.0 148.6 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw03.dfw4.tfbnw.net">po105.psw03.dfw4.tfbnw.net</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.23"><span>157.240.37.23</span></a>    0.0%   20    148.0 148.0 147.9 148.3 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.23">157.240.37.23</span>
+12. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    148.3 148.2 148.1 148.4 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-AU_1-tr">
+            <td id="ping-AU_1-location">
+                Australia, Sydney
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'AU_1', 'Australia, Sydney', 'Vultr', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-AU_1-provider">
+                Vultr
+            </td>
+            <td id="ping-AU_1-loss">0%</td>
+            <td id="ping-AU_1-sent">20</td>
+            <td id="ping-AU_1-last">192.92</td>
+            <td id="ping-AU_1-avg">192.95</td>
+            <td id="ping-AU_1-best">192.78</td>
+            <td id="ping-AU_1-worst">193.31</td>
+            <td id="ping-AU_1-stdev">0.12</td>
+            <td id="ping-AU_1-mtr">
+                <span id="td-AU_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-AU_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-AU_1-chart" width="100%">
+                <canvas id="canvas-AU_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-AU_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-AU_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="Australia">AU</span> <a target="_blank" href="http://bgp.he.net/ip/45.76.118.0"><span>45.76.118.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="Australia">AU</span> <a target="_blank" href="http://bgp.he.net/ip/103.43.73.33"><span>103.43.73.33</span></a>     0.0%   20    1.0   1.2   1.0   2.7   0.4   <a target="_blank" href="http://bgp.he.net/AS20473" title="AS-CHOOPA - Choopa, LLC, US"><span>20473 US CHOOPA</span></a>                 <span title="vl199-ds1-b5-r1121.aus1.choopa.net">vl199-ds1-b5-r1121.aus1.choopa</span>
+3.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+4.  <span title="Australia">AU</span> <a target="_blank" href="http://bgp.he.net/ip/202.68.65.5"><span>202.68.65.5</span></a>      0.0%   20    0.5   0.5   0.4   1.0   0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="202.68.65.5">202.68.65.5</span>
+5.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.3.164"><span>129.250.3.164</span></a>    0.0%   20    159.1 158.1 157.5 159.4 0.6   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-8.r22.lsanca07.us.bb.gin.ntt.net">ae-8.r22.lsanca07.us.bb.gin.nt</span>
+6.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.7.68"><span>129.250.7.68</span></a>     0.0%   20    199.2 199.1 198.9 199.6 0.1   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-7.r22.dllstx09.us.bb.gin.ntt.net">ae-7.r22.dllstx09.us.bb.gin.nt</span>
+7.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/129.250.4.82"><span>129.250.4.82</span></a>     0.0%   20    187.2 187.1 186.9 187.5 0.2   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-2.r10.dllstx09.us.bb.gin.ntt.net">ae-2.r10.dllstx09.us.bb.gin.nt</span>
+8.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/128.241.4.18"><span>128.241.4.18</span></a>     0.0%   20    188.6 191.8 188.0 205.0 5.5   <a target="_blank" href="http://bgp.he.net/AS2914" title="NTT-COMMUNICATIONS-2914 - NTT America, Inc., US"><span>2914  US NTT-COMM-2914</span></a>          <span title="ae-0.facebook.dllstx09.us.bb.gin.ntt.net">ae-0.facebook.dllstx09.us.bb.g</span>
+9.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.32.149"><span>157.240.32.149</span></a>   0.0%   20    193.1 193.0 192.9 193.5 0.2   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="po105.psw04.dfw4.tfbnw.net">po105.psw04.dfw4.tfbnw.net</span>
+10. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.37.87"><span>157.240.37.87</span></a>    5.0%   20    192.9 193.0 192.9 193.2 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="157.240.37.87">157.240.37.87</span>
+11. <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/157.240.17.35"><span>157.240.17.35</span></a>    5.0%   20    192.9 192.9 192.7 193.1 0.1   <a target="_blank" href="http://bgp.he.net/AS32934" title="FACEBOOK - Facebook, Inc., US"><span>32934 US FACEBOOK</span></a>               <span title="edge-star-mini-shv-03-dft4.facebook.com">edge-star-mini-shv-03-dft4.fac</span></pre></td></tr>
+        
+        <tr id="ping-CN_1-tr">
+            <td id="ping-CN_1-location">
+                China, Guizhou
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_1', 'China, Guizhou', 'China Telecom', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_1-provider">
+                China Telecom
+            </td>
+            <td id="ping-CN_1-loss">100%</td>
+            <td id="ping-CN_1-sent">16</td>
+            <td id="ping-CN_1-last">–</td>
+            <td id="ping-CN_1-avg">–</td>
+            <td id="ping-CN_1-best">–</td>
+            <td id="ping-CN_1-worst">–</td>
+            <td id="ping-CN_1-stdev">–</td>
+            <td id="ping-CN_1-mtr">
+                <span id="td-CN_1-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_1-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_1-chart" width="100%">
+                <canvas id="canvas-CN_1" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_1-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_1-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/123.249.20.0"><span>123.249.20.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/123.249.20.129"><span>123.249.20.129</span></a>   0.0%   20    65.8  42.5  3.8   97.4  24.3  <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="123.249.20.129">123.249.20.129</span>
+2.     <a target="_blank" href="http://bgp.he.net/ip/192.168.0.1"><span>192.168.0.1</span></a>      65.0%  20    3.3   6.6   3.3   13.6  3.3   -
+3.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.141.127.57"><span>219.141.127.57</span></a>   0.0%   20    2.1   3.9   1.6   17.0  3.6   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="219.141.127.57">219.141.127.57</span>
+4.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.141.127.49"><span>219.141.127.49</span></a>   5.0%   20    5.1   2.0   1.1   7.2   1.6   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="219.141.127.49">219.141.127.49</span>
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/61.189.251.109"><span>61.189.251.109</span></a>   0.0%   20    8.1   8.9   8.1   13.1  1.3   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="61.189.251.109">61.189.251.109</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/202.97.69.93"><span>202.97.69.93</span></a>     0.0%   20    23.3  22.7  20.4  24.4  1.2   -
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/202.97.94.146"><span>202.97.94.146</span></a>    10.0%  20    38.1  36.7  36.3  38.1  0.5   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="202.97.94.146">202.97.94.146</span>
+8.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_2-tr">
+            <td id="ping-CN_2-location">
+                China, Henan
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_2', 'China, Henan', 'China Unicom', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_2-provider">
+                China Unicom
+            </td>
+            <td id="ping-CN_2-loss">100%</td>
+            <td id="ping-CN_2-sent">15</td>
+            <td id="ping-CN_2-last">–</td>
+            <td id="ping-CN_2-avg">–</td>
+            <td id="ping-CN_2-best">–</td>
+            <td id="ping-CN_2-worst">–</td>
+            <td id="ping-CN_2-stdev">–</td>
+            <td id="ping-CN_2-mtr">
+                <span id="td-CN_2-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_2-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_2-chart" width="100%">
+                <canvas id="canvas-CN_2" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_2-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_2-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/125.46.54.0"><span>125.46.54.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/218.29.42.254"><span>218.29.42.254</span></a>    5.0%   20    0.3   0.5   0.3   0.7   0.1   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="hn.kd.ny.adsl">hn.kd.ny.adsl</span>
+2.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/61.168.241.85"><span>61.168.241.85</span></a>    0.0%   20    1.2   3.2   1.0   38.8  8.4   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="pc85.zz.ha.cn">pc85.zz.ha.cn</span>
+3.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/61.168.194.45"><span>61.168.194.45</span></a>    0.0%   20    7.1   7.5   6.9   15.1  1.8   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="pc45.zz.ha.cn">pc45.zz.ha.cn</span>
+4.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.158.16.121"><span>219.158.16.121</span></a>   0.0%   20    31.2  32.1  31.1  39.7  2.4   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="219.158.16.121">219.158.16.121</span>
+5.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_3-tr">
+            <td id="ping-CN_3-location">
+                China, Guangzhou
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_3', 'China, Guangzhou', 'Tencent', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_3-provider">
+                Tencent
+            </td>
+            <td id="ping-CN_3-loss">100%</td>
+            <td id="ping-CN_3-sent">12</td>
+            <td id="ping-CN_3-last">–</td>
+            <td id="ping-CN_3-avg">–</td>
+            <td id="ping-CN_3-best">–</td>
+            <td id="ping-CN_3-worst">–</td>
+            <td id="ping-CN_3-stdev">–</td>
+            <td id="ping-CN_3-mtr">
+                <span id="td-CN_3-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_3-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_3-chart" width="100%">
+                <canvas id="canvas-CN_3" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_3-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_3-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/118.89.29.0"><span>118.89.29.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/10.59.211.129"><span>10.59.211.129</span></a>    0.0%   20    1.0   1.0   0.8   1.2   0.1   -
+2.     <a target="_blank" href="http://bgp.he.net/ip/10.59.243.232"><span>10.59.243.232</span></a>    0.0%   20    0.8   1.1   0.7   5.0   0.9   -
+3.     <a target="_blank" href="http://bgp.he.net/ip/10.200.135.197"><span>10.200.135.197</span></a>   0.0%   20    0.7   0.5   0.4   0.7   0.1   -
+4.     <a target="_blank" href="http://bgp.he.net/ip/10.200.16.169"><span>10.200.16.169</span></a>    0.0%   20    1.6   1.7   1.5   3.5   0.4   -
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/14.18.199.78"><span>14.18.199.78</span></a>     0.0%   20    1.0   1.0   0.9   1.6   0.1   <a target="_blank" href="http://bgp.he.net/AS58466" title="CT-GUANGZHOU-IDC CHINANET Guangdong province network, CN"><span>58466 CN CT-GUANGZHOU-IDC</span></a>       <span title="14.18.199.78">14.18.199.78</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/14.18.199.85"><span>14.18.199.85</span></a>     0.0%   20    4.2   4.2   3.1   9.9   1.4   <a target="_blank" href="http://bgp.he.net/AS58466" title="CT-GUANGZHOU-IDC CHINANET Guangdong province network, CN"><span>58466 CN CT-GUANGZHOU-IDC</span></a>       <span title="14.18.199.85">14.18.199.85</span>
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/113.96.7.22"><span>113.96.7.22</span></a>      0.0%   20    2.7   6.2   2.1   9.9   2.5   <a target="_blank" href="http://bgp.he.net/AS58466" title="CT-GUANGZHOU-IDC CHINANET Guangdong province network, CN"><span>58466 CN CT-GUANGZHOU-IDC</span></a>       <span title="113.96.7.22">113.96.7.22</span>
+8.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/113.108.208.37"><span>113.108.208.37</span></a>   0.0%   20    3.7   6.1   2.7   10.0  2.4   <a target="_blank" href="http://bgp.he.net/AS58466" title="CT-GUANGZHOU-IDC CHINANET Guangdong province network, CN"><span>58466 CN CT-GUANGZHOU-IDC</span></a>       <span title="113.108.208.37">113.108.208.37</span>
+9.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_4-tr">
+            <td id="ping-CN_4-location">
+                China, Beijing
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_4', 'China, Beijing', 'Aliyun', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_4-provider">
+                Aliyun
+            </td>
+            <td id="ping-CN_4-loss">100%</td>
+            <td id="ping-CN_4-sent">14</td>
+            <td id="ping-CN_4-last">–</td>
+            <td id="ping-CN_4-avg">–</td>
+            <td id="ping-CN_4-best">–</td>
+            <td id="ping-CN_4-worst">–</td>
+            <td id="ping-CN_4-stdev">–</td>
+            <td id="ping-CN_4-mtr">
+                <span id="td-CN_4-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_4-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_4-chart" width="100%">
+                <canvas id="canvas-CN_4" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_4-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_4-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/101.200.192.0"><span>101.200.192.0</span></a>    Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.220.137.41"><span>11.220.137.41</span></a>    0.0%   20    2.0   18.9  1.8   317.4 70.3  -
+3.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.220.137.54"><span>11.220.137.54</span></a>    0.0%   20    0.7   0.8   0.6   1.9   0.3   -
+4.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.116.34"><span>116.251.116.34</span></a>   0.0%   20    1.6   1.9   0.9   3.0   0.6   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.116.34">116.251.116.34</span>
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.112.209"><span>116.251.112.209</span></a>  0.0%   20    1.6   1.7   1.6   1.9   0.1   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.112.209">116.251.112.209</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/180.149.140.57"><span>180.149.140.57</span></a>   5.0%   20    1.9   1.9   1.9   2.0   0.0   <a target="_blank" href="http://bgp.he.net/AS23724" title="CHINANET-IDC-BJ-AP IDC, China Telecommunications Corporation, CN"><span>23724 CN CHINANET-IDC-BJ-AP</span></a>     <span title="180.149.140.57">180.149.140.57</span>
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/180.149.141.105"><span>180.149.141.105</span></a>  5.0%   20    2.0   2.1   2.0   2.2   0.0   <a target="_blank" href="http://bgp.he.net/AS23724" title="CHINANET-IDC-BJ-AP IDC, China Telecommunications Corporation, CN"><span>23724 CN CHINANET-IDC-BJ-AP</span></a>     <span title="180.149.141.105">180.149.141.105</span>
+8.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/218.30.28.53"><span>218.30.28.53</span></a>     0.0%   20    3.5   3.5   3.4   3.8   0.1   <a target="_blank" href="http://bgp.he.net/AS23724" title="CHINANET-IDC-BJ-AP IDC, China Telecommunications Corporation, CN"><span>23724 CN CHINANET-IDC-BJ-AP</span></a>     <span title="218.30.28.53">218.30.28.53</span>
+9.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/202.97.34.94"><span>202.97.34.94</span></a>     0.0%   20    3.9   5.9   3.8   34.0  6.9   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="202.97.34.94">202.97.34.94</span>
+10.    <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_5-tr">
+            <td id="ping-CN_5-location">
+                China, Shenzhen
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_5', 'China, Shenzhen', 'Aliyun', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_5-provider">
+                Aliyun
+            </td>
+            <td id="ping-CN_5-loss">100%</td>
+            <td id="ping-CN_5-sent">12</td>
+            <td id="ping-CN_5-last">–</td>
+            <td id="ping-CN_5-avg">–</td>
+            <td id="ping-CN_5-best">–</td>
+            <td id="ping-CN_5-worst">–</td>
+            <td id="ping-CN_5-stdev">–</td>
+            <td id="ping-CN_5-mtr">
+                <span id="td-CN_5-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_5-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_5-chart" width="100%">
+                <canvas id="canvas-CN_5" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_5-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_5-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/120.24.218.0"><span>120.24.218.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+3.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.217.38.238"><span>11.217.38.238</span></a>    0.0%   20    1.0   1.2   1.0   2.6   0.4   -
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/42.120.253.13"><span>42.120.253.13</span></a>    0.0%   20    3.1   2.9   1.6   3.6   0.6   <a target="_blank" href="http://bgp.he.net/AS37963" title="CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd., CN"><span>37963 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="42.120.253.13">42.120.253.13</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.113.141"><span>116.251.113.141</span></a>  0.0%   20    2.0   2.3   2.0   4.8   0.6   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.113.141">116.251.113.141</span>
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/183.2.180.153"><span>183.2.180.153</span></a>    0.0%   20    2.9   2.9   2.8   3.1   0.1   <a target="_blank" href="http://bgp.he.net/AS4816" title="CHINANET-IDC-GD China Telecom (Group), CN"><span>4816  CN CHINANET-IDC-GD</span></a>        <span title="183.2.180.153">183.2.180.153</span>
+8.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/183.2.182.129"><span>183.2.182.129</span></a>    15.0%  20    2.7   2.8   2.7   3.7   0.2   <a target="_blank" href="http://bgp.he.net/AS4816" title="CHINANET-IDC-GD China Telecom (Group), CN"><span>4816  CN CHINANET-IDC-GD</span></a>        <span title="183.2.182.129">183.2.182.129</span>
+9.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/119.147.219.249"><span>119.147.219.249</span></a>  0.0%   20    12.8  10.7  6.5   16.0  2.6   <a target="_blank" href="http://bgp.he.net/AS4816" title="CHINANET-IDC-GD China Telecom (Group), CN"><span>4816  CN CHINANET-IDC-GD</span></a>        <span title="119.147.219.249">119.147.219.249</span>
+10. <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/202.97.94.122"><span>202.97.94.122</span></a>    50.0%  20    7.0   7.4   6.9   9.2   0.9   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="202.97.94.122">202.97.94.122</span>
+11.    <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_6-tr">
+            <td id="ping-CN_6-location">
+                China, Anhui
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_6', 'China, Anhui', 'China Mobile', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_6-provider">
+                China Mobile
+            </td>
+            <td id="ping-CN_6-loss">100%</td>
+            <td id="ping-CN_6-sent">16</td>
+            <td id="ping-CN_6-last">–</td>
+            <td id="ping-CN_6-avg">–</td>
+            <td id="ping-CN_6-best">–</td>
+            <td id="ping-CN_6-worst">–</td>
+            <td id="ping-CN_6-stdev">–</td>
+            <td id="ping-CN_6-mtr">
+                <span id="td-CN_6-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_6-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_6-chart" width="100%">
+                <canvas id="canvas-CN_6" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_6-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_6-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/112.30.130.0"><span>112.30.130.0</span></a>     Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+3.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/112.29.129.65"><span>112.29.129.65</span></a>    20.0%  20    1.9   2.5   1.0   5.1   1.2   <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="112.29.129.65">112.29.129.65</span>
+4.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/112.29.129.13"><span>112.29.129.13</span></a>    0.0%   20    2.3   3.7   2.0   6.0   1.0   <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="112.29.129.13">112.29.129.13</span>
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.183.13.213"><span>221.183.13.213</span></a>   0.0%   20    3.7   6.4   1.2   43.1  12.3  <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="221.183.13.213">221.183.13.213</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.176.18.42"><span>221.176.18.42</span></a>    0.0%   20    16.3  11.6  9.3   16.3  2.1   <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="221.176.18.42">221.176.18.42</span>
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.176.17.178"><span>221.176.17.178</span></a>   0.0%   20    17.1  21.6  13.8  83.0  15.8  <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="221.176.17.178">221.176.17.178</span>
+8.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_7-tr">
+            <td id="ping-CN_7-location">
+                China, Jiangsu
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_7', 'China, Jiangsu', 'China Mobile', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_7-provider">
+                China Mobile
+            </td>
+            <td id="ping-CN_7-loss">100%</td>
+            <td id="ping-CN_7-sent">16</td>
+            <td id="ping-CN_7-last">–</td>
+            <td id="ping-CN_7-avg">–</td>
+            <td id="ping-CN_7-best">–</td>
+            <td id="ping-CN_7-worst">–</td>
+            <td id="ping-CN_7-stdev">–</td>
+            <td id="ping-CN_7-mtr">
+                <span id="td-CN_7-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_7-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_7-chart" width="100%">
+                <canvas id="canvas-CN_7" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_7-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_7-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.     <a target="_blank" href="http://bgp.he.net/ip/221.181.173.0Jan"><span>221.181.173.0Jan</span></a> 15     13:55:542018                          AS Name                         PTR
+HOST:   <a target="_blank" href="http://bgp.he.net/ip/it7-cmcc"><span>it7-cmcc</span></a>         Loss%  Snt   Last  Avg   Best  Wrst  StDev -
+1.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+3.|--   <a target="_blank" href="http://bgp.he.net/ip/10.57.99.229"><span>10.57.99.229</span></a>     0.0%   20    0.8   0.8   0.6   1.9   0.2   -
+4.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.131.176.49"><span>221.131.176.49</span></a>   0.0%   20    1.3   3.4   1.1   45.0  9.8   <a target="_blank" href="http://bgp.he.net/AS56046" title="CMNET-JIANGSU-AP China Mobile communications corporation, CN"><span>56046 CN CMNET-JIANGSU-AP</span></a>       <span title="221.131.176.49">221.131.176.49</span>
+5.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/183.207.29.45"><span>183.207.29.45</span></a>    0.0%   20    5.3   5.7   5.3   9.4   0.8   <a target="_blank" href="http://bgp.he.net/AS56046" title="CMNET-JIANGSU-AP China Mobile communications corporation, CN"><span>56046 CN CMNET-JIANGSU-AP</span></a>       <span title="45.29.207.183.static.js.chinamobile.com">45.29.207.183.static.js.chinam</span>
+6.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.183.18.25"><span>221.183.18.25</span></a>    0.0%   20    8.0   9.9   7.9   30.6  5.8   <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="221.183.18.25">221.183.18.25</span>
+7.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.176.20.90"><span>221.176.20.90</span></a>    0.0%   20    12.0  14.4  12.0  36.2  6.7   <a target="_blank" href="http://bgp.he.net/AS9808" title="CMNET-GD Guangdong Mobile Communication Co.Ltd., CN"><span>9808  CN CMNET-GD</span></a>               <span title="221.176.20.90">221.176.20.90</span>
+8.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_8-tr">
+            <td id="ping-CN_8-location">
+                China, Jiangsu
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_8', 'China, Jiangsu', 'China Unicom', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_8-provider">
+                China Unicom
+            </td>
+            <td id="ping-CN_8-loss">100%</td>
+            <td id="ping-CN_8-sent">14</td>
+            <td id="ping-CN_8-last">–</td>
+            <td id="ping-CN_8-avg">–</td>
+            <td id="ping-CN_8-best">–</td>
+            <td id="ping-CN_8-worst">–</td>
+            <td id="ping-CN_8-stdev">–</td>
+            <td id="ping-CN_8-mtr">
+                <span id="td-CN_8-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_8-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_8-chart" width="100%">
+                <canvas id="canvas-CN_8" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_8-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_8-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.     <a target="_blank" href="http://bgp.he.net/ip/58.241.123.0Jan"><span>58.241.123.0Jan</span></a>  15     13:55:542018                          AS Name                         PTR
+HOST:   <a target="_blank" href="http://bgp.he.net/ip/it7-cu"><span>it7-cu</span></a>           Loss%  Snt   Last  Avg   Best  Wrst  StDev -
+1.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+3.|--   <a target="_blank" href="http://bgp.he.net/ip/10.0.1.1"><span>10.0.1.1</span></a>         0.0%   20    3.1   23.8  2.8   150.6 44.4  -
+4.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/122.194.48.142"><span>122.194.48.142</span></a>   0.0%   20    2.5   5.0   2.1   31.4  6.4   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="122.194.48.142">122.194.48.142</span>
+5.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/122.194.46.61"><span>122.194.46.61</span></a>    0.0%   20    4.4   3.8   1.9   5.9   0.9   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="122.194.46.61">122.194.46.61</span>
+6.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/221.6.154.221"><span>221.6.154.221</span></a>    0.0%   20    5.0   4.9   4.8   5.2   0.0   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="221.6.154.221">221.6.154.221</span>
+7.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.158.14.153"><span>219.158.14.153</span></a>   0.0%   20    6.5   8.8   6.4   51.4  10.0  <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="219.158.14.153">219.158.14.153</span>
+8.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_9-tr">
+            <td id="ping-CN_9-location">
+                China, Jiangsu
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_9', 'China, Jiangsu', 'China Telecom', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_9-provider">
+                China Telecom
+            </td>
+            <td id="ping-CN_9-loss">100%</td>
+            <td id="ping-CN_9-sent">14</td>
+            <td id="ping-CN_9-last">–</td>
+            <td id="ping-CN_9-avg">–</td>
+            <td id="ping-CN_9-best">–</td>
+            <td id="ping-CN_9-worst">–</td>
+            <td id="ping-CN_9-stdev">–</td>
+            <td id="ping-CN_9-mtr">
+                <span id="td-CN_9-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_9-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_9-chart" width="100%">
+                <canvas id="canvas-CN_9" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_9-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_9-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.     <a target="_blank" href="http://bgp.he.net/ip/222.186.161.0Jan"><span>222.186.161.0Jan</span></a> 15     13:55:552018                          AS Name                         PTR
+HOST:   <a target="_blank" href="http://bgp.he.net/ip/it7-ct"><span>it7-ct</span></a>           Loss%  Snt   Last  Avg   Best  Wrst  StDev -
+1.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/222.186.161.1"><span>222.186.161.1</span></a>    0.0%   20    2.7   4.7   2.6   18.4  4.0   <a target="_blank" href="http://bgp.he.net/AS23650" title="CHINANET-JS-AS-AP AS Number for CHINANET jiangsu province backbone, CN"><span>23650 CN CHINANET-JS-AP</span></a>         <span title="222.186.161.1">222.186.161.1</span>
+2.|--   <a target="_blank" href="http://bgp.he.net/ip/10.10.10.1"><span>10.10.10.1</span></a>       0.0%   20    2.5   2.6   2.2   6.3   0.7   -
+3.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+4.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/58.217.46.9"><span>58.217.46.9</span></a>      0.0%   20    0.9   0.9   0.8   2.2   0.2   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="58.217.46.9">58.217.46.9</span>
+5.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/58.217.46.109"><span>58.217.46.109</span></a>    0.0%   20    4.8   4.9   4.8   5.0   0.0   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="58.217.46.109">58.217.46.109</span>
+6.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/58.215.148.53"><span>58.215.148.53</span></a>    0.0%   20    4.3   4.4   4.3   4.8   0.0   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="58.215.148.53">58.215.148.53</span>
+7.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/202.97.84.1"><span>202.97.84.1</span></a>      0.0%   20    9.4   10.4  6.6   14.1  2.2   <a target="_blank" href="http://bgp.he.net/AS4134" title="CHINANET-BACKBONE No.31,Jin-rong Street, CN"><span>4134  CN CHINANET-BACKBONE</span></a>      <span title="202.97.84.1">202.97.84.1</span>
+8.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_10-tr">
+            <td id="ping-CN_10-location">
+                China, Qingdao
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_10', 'China, Qingdao', 'Aliyun (1)', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_10-provider">
+                Aliyun (1)
+            </td>
+            <td id="ping-CN_10-loss">100%</td>
+            <td id="ping-CN_10-sent">16</td>
+            <td id="ping-CN_10-last">–</td>
+            <td id="ping-CN_10-avg">–</td>
+            <td id="ping-CN_10-best">–</td>
+            <td id="ping-CN_10-worst">–</td>
+            <td id="ping-CN_10-stdev">–</td>
+            <td id="ping-CN_10-mtr">
+                <span id="td-CN_10-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_10-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_10-chart" width="100%">
+                <canvas id="canvas-CN_10" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_10-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_10-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.     <a target="_blank" href="http://bgp.he.net/ip/118.190.153.0Jan"><span>118.190.153.0Jan</span></a> 16     03:06:272018                          AS Name                         PTR
+HOST:   <a target="_blank" href="http://bgp.he.net/ip/iZm5e7tbgo9lk76gvzgqt1Z"><span>iZm5e7tbgo9lk76gvzgqt1Z</span></a>Loss%  Snt   Last  Avg   Best  Wrst  StDev -
+1.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.|--<span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.208.177.205"><span>11.208.177.205</span></a>   0.0%   20    1.3   2.0   1.1   8.2   1.7   -
+3.|--<span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.208.176.170"><span>11.208.176.170</span></a>   0.0%   20    5.8   15.9  1.4   39.7  14.7  -
+4.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/119.38.215.22"><span>119.38.215.22</span></a>    0.0%   20    1.1   1.2   0.9   1.8   0.0   <a target="_blank" href="http://bgp.he.net/AS37963" title="CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd., CN"><span>37963 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="119.38.215.22">119.38.215.22</span>
+5.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.113.37"><span>116.251.113.37</span></a>   0.0%   20    1.8   2.1   1.5   5.7   0.9   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.113.37">116.251.113.37</span>
+6.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/27.221.80.253"><span>27.221.80.253</span></a>    65.0%  20    6042. 6170. 5646. 6479. 286.1 <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="27.221.80.253">27.221.80.253</span>
+7.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/27.221.86.37"><span>27.221.86.37</span></a>     0.0%   20    1.8   1.7   1.4   3.3   0.2   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="27.221.86.37">27.221.86.37</span>
+8.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.158.114.233"><span>219.158.114.233</span></a>  0.0%   20    35.3  35.4  35.0  37.1  0.5   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="219.158.114.233">219.158.114.233</span>
+9.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_11-tr">
+            <td id="ping-CN_11-location">
+                China, Qingdao
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_11', 'China, Qingdao', 'Aliyun (2)', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_11-provider">
+                Aliyun (2)
+            </td>
+            <td id="ping-CN_11-loss">100%</td>
+            <td id="ping-CN_11-sent">14</td>
+            <td id="ping-CN_11-last">–</td>
+            <td id="ping-CN_11-avg">–</td>
+            <td id="ping-CN_11-best">–</td>
+            <td id="ping-CN_11-worst">–</td>
+            <td id="ping-CN_11-stdev">–</td>
+            <td id="ping-CN_11-mtr">
+                <span id="td-CN_11-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_11-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_11-chart" width="100%">
+                <canvas id="canvas-CN_11" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_11-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_11-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.     <a target="_blank" href="http://bgp.he.net/ip/120.27.8.0Jan"><span>120.27.8.0Jan</span></a>    16     03:05:392018                          AS Name                         PTR
+HOST:   <a target="_blank" href="http://bgp.he.net/ip/izm5e2kvdczytbsv69p0kwz"><span>izm5e2kvdczytbsv69p0kwz</span></a>Loss%  Snt   Last  Avg   Best  Wrst  StDev -
+1.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.|--<span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.208.176.145"><span>11.208.176.145</span></a>   0.0%   20    1.2   2.8   1.0   24.1  5.1   -
+3.|--<span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.208.177.210"><span>11.208.177.210</span></a>   0.0%   20    55.8  49.9  1.3   72.6  16.8  -
+4.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/119.38.215.26"><span>119.38.215.26</span></a>    0.0%   20    1.2   1.3   1.0   1.6   0.0   <a target="_blank" href="http://bgp.he.net/AS37963" title="CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd., CN"><span>37963 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="119.38.215.26">119.38.215.26</span>
+5.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/119.38.214.182"><span>119.38.214.182</span></a>   0.0%   20    2.0   2.0   1.7   3.6   0.3   <a target="_blank" href="http://bgp.he.net/AS37963" title="CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd., CN"><span>37963 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="119.38.214.182">119.38.214.182</span>
+6.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/27.221.80.225"><span>27.221.80.225</span></a>    65.0%  20    5974. 6185. 5670. 6670. 367.2 <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="27.221.80.225">27.221.80.225</span>
+7.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/27.221.86.25"><span>27.221.86.25</span></a>     0.0%   20    2.4   2.1   1.8   3.5   0.2   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="27.221.86.25">27.221.86.25</span>
+8.|--<span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/219.158.114.233"><span>219.158.114.233</span></a>  0.0%   20    36.0  36.3  35.9  37.8  0.2   <a target="_blank" href="http://bgp.he.net/AS4837" title="CHINA169-BACKBONE CHINA UNICOM China169 Backbone, CN"><span>4837  CN CHINA169-BACKBONE</span></a>      <span title="219.158.114.233">219.158.114.233</span>
+9.|--   <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        
+        <tr id="ping-CN_12-tr">
+            <td id="ping-CN_12-location">
+                China, Shanghai
+                <script type="text/javascript">
+                    $( document ).ready(function() {
+                        $('#input_ip').select();
+                        doSuperCrazyShit ( 'CN_12', 'China, Shanghai', 'Aliyun', 'VYdTV4vXvSMUSxkb', '157.240.17.35' );
+                    });
+                </script>
+            </td>
+            <td id="ping-CN_12-provider">
+                Aliyun
+            </td>
+            <td id="ping-CN_12-loss">100%</td>
+            <td id="ping-CN_12-sent">15</td>
+            <td id="ping-CN_12-last">–</td>
+            <td id="ping-CN_12-avg">–</td>
+            <td id="ping-CN_12-best">–</td>
+            <td id="ping-CN_12-worst">–</td>
+            <td id="ping-CN_12-stdev">–</td>
+            <td id="ping-CN_12-mtr">
+                <span id="td-CN_12-mtr-report-show" style="color: rgb(18, 255, 61); cursor: pointer; opacity: 0.9;">show</span>
+                <span id="td-CN_12-mtr-report-loading" style="color: rgb(64, 64, 64); display: none;">...</span>
+            </td>
+            <td id="ping-CN_12-chart" width="100%">
+                <canvas id="canvas-CN_12" width="200" height="20" style="margin:0px;padding:0px"></canvas>
+            </td>     
+<!--
+            <td id='ping-CN_12-debug'>
+            </td>         
+-->
+        </tr><tr id="ping-CN_12-mtr-report" style="display:none; background-color:#001800;outline: 1px solid #102510"><td colspan="99"><pre>0.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/106.15.53.0"><span>106.15.53.0</span></a>      Loss%  Snt   Last  Avg   Best  Wrst  StDev AS Name                         PTR
+1.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+2.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.218.123.85"><span>11.218.123.85</span></a>    0.0%   20    2.1   2.6   1.8   6.1   1.0   -
+3.     <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -
+4.  <span title="United States">US</span> <a target="_blank" href="http://bgp.he.net/ip/11.217.0.18"><span>11.217.0.18</span></a>      85.0%  20    0.8   1.0   0.8   1.0   0.1   -
+5.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.104.42"><span>116.251.104.42</span></a>   5.0%   20    1.1   1.0   0.9   1.1   0.1   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.104.42">116.251.104.42</span>
+6.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/116.251.113.197"><span>116.251.113.197</span></a>  0.0%   20    1.5   1.5   1.4   1.9   0.1   <a target="_blank" href="http://bgp.he.net/AS45102" title="CNNIC-ALIBABA-CN-NET-AP Alibaba (China) Technology Co., Ltd., CN"><span>45102 CN CNNIC-ALIBABA-CN-NET-AP</span></a> <span title="116.251.113.197">116.251.113.197</span>
+7.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/101.95.211.125"><span>101.95.211.125</span></a>   30.0%  20    3.5   1.9   1.6   3.5   0.5   <a target="_blank" href="http://bgp.he.net/AS4812" title="CHINANET-SH-AP China Telecom (Group), CN"><span>4812  CN CHINANET-SH-AP</span></a>         <span title="101.95.211.125">101.95.211.125</span>
+8.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/101.95.208.89"><span>101.95.208.89</span></a>    25.0%  20    2.8   2.9   2.8   3.4   0.2   <a target="_blank" href="http://bgp.he.net/AS4812" title="CHINANET-SH-AP China Telecom (Group), CN"><span>4812  CN CHINANET-SH-AP</span></a>         <span title="101.95.208.89">101.95.208.89</span>
+9.  <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/124.74.166.125"><span>124.74.166.125</span></a>   0.0%   20    10.9  7.7   3.8   13.3  3.0   <a target="_blank" href="http://bgp.he.net/AS4812" title="CHINANET-SH-AP China Telecom (Group), CN"><span>4812  CN CHINANET-SH-AP</span></a>         <span title="124.74.166.125">124.74.166.125</span>
+10. <span title="China">CN</span> <a target="_blank" href="http://bgp.he.net/ip/101.95.88.14"><span>101.95.88.14</span></a>     0.0%   20    4.7   5.7   4.2   7.2   1.0   <a target="_blank" href="http://bgp.he.net/AS4812" title="CHINANET-SH-AP China Telecom (Group), CN"><span>4812  CN CHINANET-SH-AP</span></a>         <span title="101.95.88.14">101.95.88.14</span>
+11.    <a target="_blank" href="http://bgp.he.net/ip/???"><span>???</span></a>              100.0  20    0.0   0.0   0.0   0.0   0.0   -</pre></td></tr>
+        </tbody></table>
+
+
+<div id="dataForBuffer" style="display:none">
+<pre><span id="string-header">Location                  ISP                  Loss   Sent   Last   Avg    Best   Worst  StDev </span><br>
+<span id="string-header-divider">----------------------------------------------------------------------------------------------</span><br>
+<span id="string-CA_BC_1">Canada, BC, Vancouver     Telus                0%     22     67.25  67.33  67.11  67.84  0.21   </span><br>
+<span id="string-CA_BC_2">Canada, BC, Vancouver     Shaw                 0%     20     74.51  76.25  73.53  84.58  3.28   </span><br>
+<span id="string-US_WA_1">USA, WA, Seattle          PCCW                 0%     22     59.37  59.33  59.25  59.39  0.04   </span><br>
+<span id="string-US_WA_2">USA, WA, Seattle          Softlayer            0%     22     42.74  42.76  42.72  42.8   0.02   </span><br>
+<span id="string-US_CA_1">USA, CA, Fremont          Hurricane-fmt2       0%     22     37.3   37.56  37.26  39.03  0.37   </span><br>
+<span id="string-US_CA_3">USA, CA, Los Angeles      QuadraNET            0%     22     30.38  30.39  30.32  30.49  0.04   </span><br>
+<span id="string-US_TX_1">USA, TX, Dallas           Softlayer            0%     23     1.99   1.96   1.9    2.23   0.06   </span><br>
+<span id="string-US_IL_1">USA, IL, Chicago          Cogent               0%     22     23.99  24.05  23.24  28.93  1.53   </span><br>
+<span id="string-US_GA_1">USA, GA, Atlanta          55 Marietta/RamNode  0%     22     18.36  18.32  18.28  18.36  0.02   </span><br>
+<span id="string-US_NY_2">USA, NY, New York         Telehouse/RamNode    0%     22     35.71  35.74  35.69  35.9   0.04   </span><br>
+<span id="string-EU_NL_3">Netherlands, Nuland       WeservIT/RamNode     0%     21     119.27 119.4  119.27 119.58 0.09   </span><br>
+<span id="string-EU_LU_1">Luxembourg, Roost         Root.lu/BuyVM        0%     21     116.1  117.1  116.04 131.11 3.27   </span><br>
+<span id="string-EU_DE_2">Germany, Bochum           ProviderService      0%     21     122.57 122.6  122.57 122.64 0.02   </span><br>
+<span id="string-EU_IT_1">Italy, Milan              Prometeus            0%     20     127.49 127.65 127.46 129.07 0.39   </span><br>
+<span id="string-RU_MSK_1">Russia, Moscow            WebDC/FirstVDS       0%     20     166.04 165.73 164.57 167.34 0.66   </span><br>
+<span id="string-RU_TSK_1">Russia, Tomsk             Tomgate/Berihoster   0%     20     223.84 223.67 223.46 224.21 0.21   </span><br>
+<span id="string-SG_1">Singapore                 Digital Ocean        0%     17     200.73 200.72 200.66 201.05 0.08   </span><br>
+<span id="string-JP_1">Japan, Tokyo              Vultr                0%     20     148.11 148.11 148.03 148.2  0.04   </span><br>
+<span id="string-AU_1">Australia, Sydney         Vultr                0%     20     192.92 192.95 192.78 193.31 0.12   </span><br>
+<span id="string-CN_1">China, Guizhou            China Telecom        100%   16     – – – – – </span><br>
+<span id="string-CN_2">China, Henan              China Unicom         100%   15     – – – – – </span><br>
+<span id="string-CN_3">China, Guangzhou          Tencent              100%   12     – – – – – </span><br>
+<span id="string-CN_4">China, Beijing            Aliyun               100%   14     – – – – – </span><br>
+<span id="string-CN_5">China, Shenzhen           Aliyun               100%   12     – – – – – </span><br>
+<span id="string-CN_6">China, Anhui              China Mobile         100%   16     – – – – – </span><br>
+<span id="string-CN_7">China, Jiangsu            China Mobile         100%   16     – – – – – </span><br>
+<span id="string-CN_8">China, Jiangsu            China Unicom         100%   14     – – – – – </span><br>
+<span id="string-CN_9">China, Jiangsu            China Telecom        100%   14     – – – – – </span><br>
+<span id="string-CN_10">China, Qingdao            Aliyun (1)           100%   16     – – – – – </span><br>
+<span id="string-CN_11">China, Qingdao            Aliyun (2)           100%   14     – – – – – </span><br>
+<span id="string-CN_12">China, Shanghai           Aliyun               100%   15     – – – – – </span><br>
+<br>
+<span id="string-footer">Report created by ping.pe for 157.240.17.35 (facebook.com) on Mon, 15 Jan 2018 14:06:57 -0500</span>
+</pre>
+</div>
+
+<br>
+[<a href="https://ping.pe/facebook.com#" id="copy-button" data-clipboard-text="
+Location                  ISP                  Loss   Sent   Last   Avg    Best   Worst  StDev 
+----------------------------------------------------------------------------------------------
+Canada, BC, Vancouver     Telus                0%     22     67.25  67.33  67.11  67.84  0.21   
+Canada, BC, Vancouver     Shaw                 0%     20     74.51  76.25  73.53  84.58  3.28   
+USA, WA, Seattle          PCCW                 0%     22     59.37  59.33  59.25  59.39  0.04   
+USA, WA, Seattle          Softlayer            0%     22     42.74  42.76  42.72  42.8   0.02   
+USA, CA, Fremont          Hurricane-fmt2       0%     22     37.3   37.56  37.26  39.03  0.37   
+USA, CA, Los Angeles      QuadraNET            0%     22     30.38  30.39  30.32  30.49  0.04   
+USA, TX, Dallas           Softlayer            0%     23     1.99   1.96   1.9    2.23   0.06   
+USA, IL, Chicago          Cogent               0%     22     23.99  24.05  23.24  28.93  1.53   
+USA, GA, Atlanta          55 Marietta/RamNode  0%     22     18.36  18.32  18.28  18.36  0.02   
+USA, NY, New York         Telehouse/RamNode    0%     22     35.71  35.74  35.69  35.9   0.04   
+Netherlands, Nuland       WeservIT/RamNode     0%     21     119.27 119.4  119.27 119.58 0.09   
+Luxembourg, Roost         Root.lu/BuyVM        0%     21     116.1  117.1  116.04 131.11 3.27   
+Germany, Bochum           ProviderService      0%     21     122.57 122.6  122.57 122.64 0.02   
+Italy, Milan              Prometeus            0%     20     127.49 127.65 127.46 129.07 0.39   
+Russia, Moscow            WebDC/FirstVDS       0%     20     166.04 165.73 164.57 167.34 0.66   
+Russia, Tomsk             Tomgate/Berihoster   0%     20     223.84 223.67 223.46 224.21 0.21   
+Singapore                 Digital Ocean        0%     17     200.73 200.72 200.66 201.05 0.08   
+Japan, Tokyo              Vultr                0%     20     148.11 148.11 148.03 148.2  0.04   
+Australia, Sydney         Vultr                0%     20     192.92 192.95 192.78 193.31 0.12   
+China, Guizhou            China Telecom        100%   16     – – – – – 
+China, Henan              China Unicom         100%   15     – – – – – 
+China, Guangzhou          Tencent              100%   12     – – – – – 
+China, Beijing            Aliyun               100%   14     – – – – – 
+China, Shenzhen           Aliyun               100%   12     – – – – – 
+China, Anhui              China Mobile         100%   16     – – – – – 
+China, Jiangsu            China Mobile         100%   16     – – – – – 
+China, Jiangsu            China Unicom         100%   14     – – – – – 
+China, Jiangsu            China Telecom        100%   14     – – – – – 
+China, Qingdao            Aliyun (1)           100%   16     – – – – – 
+China, Qingdao            Aliyun (2)           100%   14     – – – – – 
+China, Shanghai           Aliyun               100%   15     – – – – – 
+
+Report created by ping.pe for 157.240.17.35 (facebook.com) on Mon, 15 Jan 2018 14:06:57 -0500
+
+">Copy to Clipboard</a>]
+<script type="text/javascript" src="./facebookcom_files/ZeroClipboard.min.js"></script>
+<script type="text/javascript">
+    var client = new ZeroClipboard( document.getElementById("copy-button") );
+</script>
+
+<span id="screenshot-button-span">[<a href="https://ping.pe/facebook.com#" id="screenshot-button">Save as image</a>]</span>
+<span id="screenshot-button-span-disabled" style="display:none">[saving image...]</span>
+<script type="text/javascript" src="./facebookcom_files/html2canvas.js"></script>
+<script type="text/javascript">
+    function saveScreenshot() {
+        var el_page_div = document.getElementById('page-div');
+
+        $("#screenshot-button-span").toggle( false );
+        $("#screenshot-button-span-disabled").toggle( true );
+
+        $("#image-link-input-span").toggle( false );
+        $("#watermark").toggle( true );
+
+
+        html2canvas(el_page_div).then(function(canvas) {
+
+            var img = canvas.toDataURL();
+            $.post ( "save_image.php", {data: img}, function ( filename ) {
+                var tmpurl = window.location.href;
+                var tmparr = tmpurl.split("/");
+                var url = tmparr[0] + "//i." + tmparr[2] + "/" + filename;
+                $("#image-link-input").val ( url );
+
+                $("#watermark").toggle( false );
+                $("#image-link-input-span").toggle( true );
+
+                $("#screenshot-button-span-disabled").toggle( false );
+                $("#screenshot-button-span").toggle( true );
+
+            })
+
+            /*document.body.appendChild(canvas);*/
+        });
+    }
+    $( document ).ready(function() {
+        var el_screenshot_button = document.getElementById('screenshot-button');
+        el_screenshot_button.onclick = saveScreenshot;
+        lameCenterElement( "#page-div" );
+        $(window).resize(function() {
+            lameCenterElement( "#page-div" );
+        });
+
+    });
+</script>
+
+<span style="color:#808080;float:right; display:none" id="watermark">Report created on Mon, 15 Jan 2018 14:06:57 -0500 &nbsp;&nbsp; [ping.pe]</span>
+
+<span style="color:#a0a0a0;float:right; display:none" id="image-link-input-span"> Image:
+    <input id="image-link-input" type="text" style="width:500px; border: 1px solid #000000; background-color:#202020; color:#a0a0a0" value="" readonly="">
+</span>
+
+</div><div id="global-zeroclipboard-html-bridge" class="global-zeroclipboard-container" style="position: absolute; left: 0px; top: -9999px; width: 1px; height: 1px; z-index: 999999999;"><object id="global-zeroclipboard-flash-bridge" name="global-zeroclipboard-flash-bridge" width="100%" height="100%" type="application/x-shockwave-flash" data="./facebookcom_files/ZeroClipboard.swf.pobrane"><param name="allowScriptAccess" value="sameDomain"><param name="allowNetworking" value="all"><param name="menu" value="false"><param name="wmode" value="transparent"><param name="flashvars" value="trustedOrigins=ping.pe%2C%2F%2Fping.pe%2Chttps%3A%2F%2Fping.pe&amp;swfObjectId=global-zeroclipboard-flash-bridge&amp;jsVersion=2.2.0"><div id="global-zeroclipboard-flash-bridge_fallbackContent">&nbsp;</div></object></div>
+
+
+
+
+</body></html>
