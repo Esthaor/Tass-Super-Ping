@@ -103,6 +103,7 @@ public class DataGrabber {
             PrintWriter writer = new PrintWriter(file);
             writer.print(json);
             writer.close();
+            Files.write(Paths.get(file.getAbsolutePath()), json.getBytes());
             System.out.println(json);
         }
         for (String site : DataGrabber.TESTED_SITES_RUS) {
