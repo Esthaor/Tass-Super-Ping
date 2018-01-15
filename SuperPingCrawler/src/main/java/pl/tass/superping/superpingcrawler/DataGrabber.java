@@ -12,10 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.net.ssl.HttpsURLConnection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import pl.tass.superping.superpingcrawler.model.PingResults;
 import pl.tass.superping.superpingcrawler.model.ServerData;
 import pl.tass.superping.superpingcrawler.model.SiteInfo;
+import pl.tass.superping.superpingcrawler.model.TracerouteStep;
 
 /**
  *
@@ -27,6 +33,7 @@ public class DataGrabber {
     private final String USER_AGENT = "Mozilla/5.0";
     private final int PING_COUNT = 4;
     private final int MAX_RETRY = 4;
+    private final int SLEEPTIME = 1000;
     private final String[] ACTIONS = {
         "ping",
         "mtr_report"
@@ -56,11 +63,15 @@ public class DataGrabber {
         "wp.pl", "onet.pl", "allegro.pl"
     };
 
-    private String request_id = "Hxm7pPhIcASCNAVc";
+    private String request_id;
+
+    public DataGrabber() {
+        establishConnection();
+    }
 
     public static void main(String[] args) throws Exception {
         DataGrabber crawler = new DataGrabber();
-        String json = crawler.createStats("wp.pl");
+        String json = crawler.createStats("google.pl");
         System.out.println(json);
     }
 
@@ -77,14 +88,34 @@ public class DataGrabber {
             ServerData sd = new ServerData();
             sd.setName(SERVERS_NAMES[i]);
             sd.setShortname(SERVERS[i]);
-            PingResults pr = pingSite(siteIp, SERVERS[i]);
-            sd.setPing(pr);
+//            PingResults pr = pingSite(siteIp, SERVERS[i]);
+//            sd.setPing(pr);
+            List<TracerouteStep> tsl = tracerouteSite(siteIp, SERVERS[i]);
+            sd.setTraceroute(tsl);
             servers.add(sd);
         }
         siteInfo.setServers(servers);
         Gson gson = new Gson();
         String res = gson.toJson(siteInfo);
         return res;
+    }
+
+    private void establishConnection() {
+        try {
+            String res = sendGet("http://ping.pe/google.pl");
+            Document html = Jsoup.parse(res);
+            Element script = html.select("#megatable tr td script").first();
+            String scriptText = script.dataNodes().get(0).getWholeData();
+            String preparsed = scriptText.substring(scriptText.indexOf("doSuperCrazyShit"));
+            Pattern pattern = Pattern.compile("\\(\\s'.+',\\s'.+',\\s'(.+)',\\s'.+'\\s\\)");
+            Matcher matcher = pattern.matcher(preparsed);
+            if (matcher.find())
+                request_id = matcher.group(1);
+            else
+                throw new Exception("Cannot establish connection!");
+        } catch (Exception ex) {
+            Logger.getLogger(DataGrabber.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private PingResults pingSite(String destIp, String server) {
@@ -114,8 +145,8 @@ public class DataGrabber {
                 if (time.trim().isEmpty()) { // Zabezpieczenie przed pustymi odpowiedziami
                     i--;
                     retryCount++;
-                    Thread.sleep(1000);
                     System.out.println("Empty response: retrying...");
+                    Thread.sleep(1000);
                     continue;
                 }
                 retryCount = 0;
@@ -123,6 +154,7 @@ public class DataGrabber {
                     packageLost++;
                 else
                     pings.add(Double.parseDouble(time.trim()));
+                Thread.sleep(SLEEPTIME);
             }
         } catch (Exception ex) {
             Logger.getLogger(DataGrabber.class.getName()).log(Level.SEVERE, null, ex);
@@ -131,17 +163,65 @@ public class DataGrabber {
         double minTime = Double.MAX_VALUE;
         double maxTime = Double.MIN_VALUE;
         double sum = 0;
-        double percentLost = packageLost / pings.size() * 100;
-        for (Double d : pings) {
-            sum += d;
-            if (d < minTime)
-                minTime = d;
-            if (d > maxTime)
-                maxTime = d;
+        double avgTime;
+        double percentLost = packageLost / PING_COUNT * 100;
+        if (!pings.isEmpty()) {
+            for (Double d : pings) {
+                sum += d;
+                if (d < minTime)
+                    minTime = d;
+                if (d > maxTime)
+                    maxTime = d;
+            }
+            avgTime = sum / pings.size();
+        } else {
+            minTime = -1;
+            maxTime = -1;
+            avgTime = -1;
         }
-        double avgTime = sum / (pings.size() - packageLost);
         return new PingResults(percentLost, minTime, maxTime, avgTime);
+    }
 
+    private List<TracerouteStep> tracerouteSite(String destIp, String server) {
+        List<TracerouteStep> res = new ArrayList<>();
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append(BASE_URL)
+                    .append("?")
+                    .append("action=")
+                    .append(ACTIONS[1])
+                    .append("&")
+                    .append("pinger=")
+                    .append(server)
+                    .append("&")
+                    .append("request_id=")
+                    .append(request_id)
+                    .append("&")
+                    .append("ip=")
+                    .append(destIp);
+            String url = sb.toString();
+            int retryCount = 0;
+            String traceroute = "";
+            while (traceroute.isEmpty()) {
+                if (retryCount == MAX_RETRY)
+                    break;
+                String route = sendGet(url);
+                if (route.trim().isEmpty()) { // Zabezpieczenie przed pustymi odpowiedziami
+                    retryCount++;
+                    System.out.println("Empty response: retrying...");
+                    Thread.sleep(30000);    // Traceroute trwa u nich długo, dlatego dlugi sleep gdy brak danych
+                    continue;
+                }
+                retryCount = 0;
+                System.out.println(route);
+//                res.add(Double.parseDouble(time.trim()));
+                Thread.sleep(SLEEPTIME);
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(DataGrabber.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println(res);
+        return res;
     }
 
     private String sendGet(String url) throws Exception {
@@ -162,44 +242,6 @@ public class DataGrabber {
             response.append(inputLine);
         in.close();
         return response.toString();
-    }
-
-    private void sendPost() throws Exception {
-
-        String url = "";
-        URL obj = new URL(url);
-        HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-
-        //add reuqest header
-        con.setRequestMethod("POST");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-        con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
-
-        String urlParameters = "sn=C02G8416DRJM&cn=&locale=&caller=&num=12345";
-
-        // Send post request
-        con.setDoOutput(true);
-        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-        wr.writeBytes(urlParameters);
-        wr.flush();
-        wr.close();
-
-        int responseCode = con.getResponseCode();
-        System.out.println("\nSending 'POST' request to URL : " + url);
-        System.out.println("Post parameters : " + urlParameters);
-        System.out.println("Response Code : " + responseCode);
-
-        BufferedReader in = new BufferedReader(
-                new InputStreamReader(con.getInputStream()));
-        String inputLine;
-        StringBuffer response = new StringBuffer();
-
-        while ((inputLine = in.readLine()) != null)
-            response.append(inputLine);
-        in.close();
-
-        //print result
-        System.out.println(response.toString());
     }
 
 }
