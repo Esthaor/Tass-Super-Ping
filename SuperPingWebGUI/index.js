@@ -35,12 +35,9 @@ app.get('/getcountry', function (req, res) {
     jsonarray.push(parsedJSON);
   }
   
-  console.log(jsonarray)
   var json = JSON.stringify(xd);
   res.send(JSON.stringify(jsonarray));
 
-  //console.log(xd);
-  //res.send(test);
 });
 
 app.get('/listcountries', function (req, res) {
@@ -49,7 +46,6 @@ app.get('/listcountries', function (req, res) {
   var p = "./countries/";
 
 
-  //console.log("%s", cb);
   var countriesList = [];
   var countriesJSON;
 
