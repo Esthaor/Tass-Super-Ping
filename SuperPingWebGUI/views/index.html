@@ -2,573 +2,677 @@
 <html>
 
 <head>
-  <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
 
-  <style type="text/css">
-    html {
-      height: 100%
-    }
-
-    body {
-      padding-top: 3.5em;
-      height: 100%;
-    }
-
-    .container {
-      height: 100%;
-      max-width: 100% !important;
-      padding-right: 0 !important;
-      padding-left: 0 !important;
-      margin-right: 0 !important;
-      margin-left: 0 !important;
-    }
-
-    .row {
-      height: 100%;
-      margin-right: 0 !important;
-      margin-left: 0 !important;
-    }
-
-    .col-10 {
-      height: 100%;
-      padding-right: 0 !important;
-      padding-left: 0 !important;
-    }
-
-    .col-2 {
-      height: 100%;
-      padding-right: 0 !important;
-      padding-left: 0 !important;
-    }
-
-
-    #map_canvas {
-      height: 100%;
-    }
-  </style>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAP1ZUGNuFL79LV-j2g-qd5u1UhsZ-DNPw">
-  </script>
-  <link rel="stylesheet" href="/css/bootstrap.min.css">
-  <script src="/js/jquery.min.js"></script>
-  <script src="/js/bootstrap.min.js"></script>
-  <script type="text/javascript">
-    var map;
-    var markersArray = [];
-    var polylinesArray = [];
-
-    google.maps.Map.prototype.clearOverlays = function () {
-      for (var i = 0; i < markersArray.length; i++) {
-        markersArray[i].setMap(null);
-      }
-      markersArray.length = 0;
-      for (var i = 0; i < polylinesArray.length; i++) {
-        polylinesArray[i].setMap(null);
-      }
-      polylinesArray.length = 0;
-    }
-
-
-    function initialize() {
-      window.console && console.log('xDD');
-      var mapOptions = {
-        center: new google.maps.LatLng(0, 0),
-        zoom: 3,
-        mapTypeId: google.maps.MapTypeId.ROADMAP
-      };
-      map = new google.maps.Map(document.getElementById("map_canvas"),
-        mapOptions);
-
-      var script = document.createElement('script');
-
-      // This example uses a local copy of the GeoJSON stored at
-      // http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojsonp
-      //script.src = 'https://developers.google.com/maps/documentation/javascript/examples/json/earthquake_GeoJSONP.js';
-      //document.getElementsByTagName('head')[0].appendChild(script);
-
-      //map.data.setStyle(function (feature) {
-      //  var magnitude = feature.getProperty('mag');
-      //  return {
-      //    icon: getCircle(magnitude)
-      //  };
-      //});    
-      var countries;
-      $.ajax({
-        type: 'get',
-        url: 'listcountries',
-        success: function (data) {
-
-          //availableProductNames = data.split(",");
-
-          var sel = document.getElementById('countries');
-          for (var i = 0; i < data.length; i++) {
-            var opt = document.createElement('option');
-            opt.innerHTML = data[i];
-            opt.value = data[i];
-            sel.appendChild(opt);
-          }
+    <style type="text/css">
+        html {
+            height: 100%
         }
-      });
-    };
 
-    function submitForm() {
-      var http = new XMLHttpRequest();
-      http.open("POST", "xd", true);
-      http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-      var e = document.getElementById("countries");
-      var strUser = e.options[e.selectedIndex].text;
-      var params = "xd?search=" + strUser; // probably use document.getElementById(...).value
-      http.send(params);
-      http.onload = function () {
-        alert(http.responseText);
-      }
-    };
+        body {
+            padding-top: 3.5em;
+            height: 100%;
+        }
 
-    function getCountryData() {
-      $('#servers').prop('disabled', true);
-      $('#websites')
-        .find('option')
-        .remove()
-        .end()
-        .append('<option value="Wybierz stronę">Wybierz stronę</option>')
+        .container {
+            height: 100%;
+            max-width: 100% !important;
+            padding-right: 0 !important;
+            padding-left: 0 !important;
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+        }
+
+        .row {
+            height: 100%;
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+        }
+
+        .col-10 {
+            height: 100%;
+            padding-right: 0 !important;
+            padding-left: 0 !important;
+        }
+
+        .col-2 {
+            height: 100%;
+            padding-right: 0 !important;
+            padding-left: 0 !important;
+        }
+
+        .row-fluid {
+            margin: 5px;
+        }
+
+        .server-info {
+            margin: 5px;
+        }
+
+        .inactive {
+            display: none;
+        }
+
+        #map_canvas {
+            height: 100%;
+        }
+    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <script type="text/javascript"
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAP1ZUGNuFL79LV-j2g-qd5u1UhsZ-DNPw">
+    </script>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        var map;
+        var markersArray = [];
+        var polylinesArray = [];
+
+        google.maps.Map.prototype.clearOverlays = function () {
+            for (var i = 0; i < markersArray.length; i++) {
+                markersArray[i].setMap(null);
+            }
+            markersArray.length = 0;
+            for (var i = 0; i < polylinesArray.length; i++) {
+                polylinesArray[i].setMap(null);
+            }
+            polylinesArray.length = 0;
+        }
+
+
+        function initialize() {
+            window.console && console.log('xDD');
+            var mapOptions = {
+                center: new google.maps.LatLng(0, 0),
+                zoom: 3,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            };
+            map = new google.maps.Map(document.getElementById("map_canvas"),
+                mapOptions);
+
+            var script = document.createElement('script');
+
+            // This example uses a local copy of the GeoJSON stored at
+            // http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojsonp
+            //script.src = 'https://developers.google.com/maps/documentation/javascript/examples/json/earthquake_GeoJSONP.js';
+            //document.getElementsByTagName('head')[0].appendChild(script);
+
+            //map.data.setStyle(function (feature) {
+            //  var magnitude = feature.getProperty('mag');
+            //  return {
+            //    icon: getCircle(magnitude)
+            //  };
+            //});
+            var countries;
+            $.ajax({
+                type: 'get',
+                url: 'listcountries',
+                success: function (data) {
+
+                    //availableProductNames = data.split(",");
+
+                    var sel = document.getElementById('countries');
+                    for (var i = 0; i < data.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.innerHTML = data[i];
+                        opt.value = data[i];
+                        sel.appendChild(opt);
+                    }
+                }
+            });
+        }
         ;
-      $('#pingButton').prop('disabled', true);
-      $('#tracerouteButton').prop('disabled', true);
-      var e = document.getElementById("countries");
-      var countryName = e.options[e.selectedIndex].text;
-      if (countryName === "Wybierz państwo") {
-        $('#websites').prop('disabled', true);
-        return;
-      }
-      $('#websites').prop('disabled', false)
-      var params = "country=" + countryName; // probably use document.getElementById(...).value
-      $.ajax({
-        type: 'get',
-        url: 'getcountry',
-        data: params,
-        success: function (data) {
 
-          var sel = document.getElementById('websites');
-          for (var i = 0; i < data.length; i++) {
-            var opt = document.createElement('option');
-            opt.innerHTML = data[i].address;
-            opt.value = i;
-            sel.appendChild(opt);
-          }
-          localStorage[countryName] = JSON.stringify(data);
-          //availableProductNames = data.split(",");
-
-          //alert(data);
-
-        }
-      })
-    };
-
-    function getWebsite() {
-      $('#servers').prop('disabled', true);
-      var e = document.getElementById("countries");
-      var countryName = e.options[e.selectedIndex].text;
-      websitesJSON = JSON.parse(localStorage[countryName]);
-      var website = $('#websites option:selected');
-      var params = "address=" + countryName;
-      if (website.text() === "Wybierz stronę") {
-        $('#pingButton').prop('disabled', true);
-        $('#tracerouteButton').prop('disabled', true);
-        return;
-      }
-      $('#pingButton').prop('disabled', false);
-      $('#tracerouteButton').prop('disabled', false);
-
-      $.ajax({
-        type: 'get',
-        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-        data: params,
-        success: function (data) {
-          map.clearOverlays();
-          var infoWindow = new google.maps.InfoWindow({
-            content: website.text()
-          });
-          var websitePosition = data.results[0].geometry.location;
-          var marker = new google.maps.Marker({
-            position: websitePosition,
-            map: map,
-            title: website.text()
-          });
-          markersArray.push(marker);
-          infoWindow.open(map, marker);
-          marker.addListener('click', function () {
-            infoWindow.open(map, marker);
-
-          });
-
-          map.setCenter(websitePosition);
-        }
-
-        //localStorage[countryName] = JSON.stringify(data);
-        //availableProductNames = data.split(",");
-
-        //alert(data);
-
-      });
-
-
-    };
-
-    function getServerData() {
-      map.clearOverlays();
-
-      var e = document.getElementById("countries");
-      var countryName = e.options[e.selectedIndex].text;
-      var f = document.getElementById("servers");
-      var serverName = f.options[f.selectedIndex].text;
-      if (serverName === "Wybierz serwer") {
-        return;
-      }
-      var serverId = f.options[f.selectedIndex].value;
-      websitesJSON = JSON.parse(localStorage[countryName]);
-      var website = $('#websites option:selected');
-      var websiteId = website.val();
-      var params = "address=" + countryName;
-
-      var websiteCoordinates;
-      $.ajax({
-        type: 'get',
-        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-        data: params,
-        async: false,
-        success: function (data) {
-          map.clearOverlays();
-          var infoWindow = new google.maps.InfoWindow({
-            content: website.text()
-          });
-          var websitePosition = data.results[0].geometry.location;
-          websiteCoordinates = data.results[0].geometry.location;
-          var marker = new google.maps.Marker({
-            position: websitePosition,
-            map: map,
-            title: website.text()
-          });
-          markersArray.push(marker);
-          infoWindow.open(map, marker);
-          marker.addListener('click', function () {
-            infoWindow.open(map, marker);
-
-          });
-
-          map.setCenter(websitePosition);
-        }
-      });
-      var tracerouteCoordinates = [];
-
-      var params = "address=" + serverName;
-      $.ajax({
-        type: 'get',
-        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-        data: params,
-        async: false,
-        success: function (data) {
-          //map.clearOverlays();
-          var infoWindow = new google.maps.InfoWindow({
-            content: serverName
-          });
-          var websitePosition = data.results[0].geometry.location;
-          tracerouteCoordinates.push(websitePosition);
-          var marker = new google.maps.Marker({
-            position: websitePosition,
-            map: map,
-            title: serverName
-          });
-          markersArray.push(marker);
-          infoWindow.open(map, marker);
-          marker.addListener('click', function () {
-            infoWindow.open(map, marker);
-
-          });
-
-          //map.setCenter(websitePosition);
-        }
-      });
-
-      
-      for (var i = 1; i < websitesJSON[websiteId].servers[serverId].traceroute.length; i++) {
-        // var opt = document.createElement('option');
-        // opt.innerHTML = data[i].address;
-        // opt.value = i;
-        // sel.appendChild(opt);
-        countryName = websitesJSON[websiteId].servers[serverId].traceroute[i].country;
-        if (countryName != "???") {
-          params = "address=" + countryName;
-          $.ajax({
-            type: 'get',
-            url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-            data: params,
-            async: false,
-            success: function (data) {
-              serverLabel = data.results[0].formatted_address;
-
-              var infoWindow = new google.maps.InfoWindow({
-                content: serverLabel
-              });
-              var websitePosition = data.results[0].geometry.location;
-
-              var marker = new google.maps.Marker({
-                position: websitePosition,
-                map: map,
-                title: serverLabel
-              });
-              markersArray.push(marker);
-              //infoWindow.open(map, marker);
-              marker.addListener('click', function () {
-                infoWindow.open(map, marker);
-
-              });
-
-              //map.setCenter(websitePosition);
-
-
-
-              tracerouteCoordinates.push(websitePosition);
-
-              if (tracerouteCoordinates.length > 1) {
-                var traceroutePath = new google.maps.Polyline({
-                  path: tracerouteCoordinates,
-                  geodesic: false,
-                  strokeColor: '#FF0000',
-                  strokeOpacity: 1.0,
-                  strokeWeight: 2
-                });
-
-                traceroutePath.setMap(map);
-                polylinesArray.push(traceroutePath);
-                tracerouteCoordinates.shift;
-              }
-
+        function submitForm() {
+            var http = new XMLHttpRequest();
+            http.open("POST", "xd", true);
+            http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            var e = document.getElementById("countries");
+            var strUser = e.options[e.selectedIndex].text;
+            var params = "xd?search=" + strUser; // probably use document.getElementById(...).value
+            http.send(params);
+            http.onload = function () {
+                alert(http.responseText);
             }
-            //localStorage[countryName] = JSON.stringify(data);
-            //availableProductNames = data.split(",");
-
-            //alert(data);
-
-          });
         }
-      }
-    }
+        ;
 
-    function httpGetAsync() {
-      var xmlHttp = new XMLHttpRequest();
-      xmlHttp.onreadystatechange = function () {
-        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-          alert(xmlHttp.responseText);
-      }
-      var e = document.getElementById("countries");
-      var strUser = e.options[e.selectedIndex].text;
-      var params = "xd?search=" + strUser; // probably use document.getElementById(...).value
-      xmlHttp.open("GET", params, true); // true for asynchronous 
-      xmlHttp.send(null);
-    }
+        function getCountryData() {
+            $('#servers').prop('disabled', true);
+            $('.server-info').addClass("inactive");
+            $('#websites')
+                .find('option')
+                .remove()
+                .end()
+                .append('<option value="Wybierz stronę">Wybierz stronę</option>')
+            ;
+            $('#pingButton').prop('disabled', true);
+            $('#tracerouteButton').prop('disabled', true);
+            $("#pingButton").removeClass("active");
+            $("#tracerouteButton").removeClass("active");
+            var e = document.getElementById("countries");
+            var countryName = e.options[e.selectedIndex].text;
+            if (countryName === "Wybierz państwo") {
+                $('#websites').prop('disabled', true);
+                return;
+            }
+            $('#websites').prop('disabled', false)
+            var params = "country=" + countryName; // probably use document.getElementById(...).value
+            $.ajax({
+                type: 'get',
+                url: 'getcountry',
+                data: params,
+                success: function (data) {
 
-    function setPingOverlay() {
-      map.clearOverlays();
-      $("#pingButton").addClass("active");
-      $("#tracerouteButton").removeClass("active");
-      $('#servers').prop('disabled', true);
+                    var sel = document.getElementById('websites');
+                    for (var i = 0; i < data.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.innerHTML = data[i].address;
+                        opt.value = i;
+                        sel.appendChild(opt);
+                    }
+                    localStorage[countryName] = JSON.stringify(data);
+                    //availableProductNames = data.split(",");
 
-      var e = document.getElementById("countries");
-      var countryName = e.options[e.selectedIndex].text;
-      websitesJSON = JSON.parse(localStorage[countryName]);
-      var website = $('#websites option:selected');
-      var websiteId = website.val();
-      var params = "address=" + countryName;
+                    //alert(data);
 
-      $.ajax({
-        type: 'get',
-        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-        data: params,
-        success: function (data) {
-          map.clearOverlays();
-          var infoWindow = new google.maps.InfoWindow({
-            content: website.text()
-          });
-          var websitePosition = data.results[0].geometry.location;
-          var marker = new google.maps.Marker({
-            position: websitePosition,
-            map: map,
-            title: website.text()
-          });
-          markersArray.push(marker);
-          infoWindow.open(map, marker);
-          marker.addListener('click', function () {
-            infoWindow.open(map, marker);
-
-          });
-
-          map.setCenter(websitePosition);
+                }
+            })
         }
-      });
+        ;
 
-      //var serverName;
-      for (var i = 0; i < websitesJSON[websiteId].servers.length; i++) {
-        // var opt = document.createElement('option');
-        // opt.innerHTML = data[i].address;
-        // opt.value = i;
-        // sel.appendChild(opt);
-        serverName = websitesJSON[websiteId].servers[i].name;
-        params = "address=" + serverName;
-        (function (ping) {
-          $.ajax({
-            type: 'get',
-            url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-            data: params,
-            success: function (data) {
-              serverLabel = data.results[0].formatted_address;
+        function getWebsite() {
+            $('#servers').prop('disabled', true);
+            $('.server-info').addClass("inactive");
+            var e = document.getElementById("countries");
+            var countryName = e.options[e.selectedIndex].text;
+            websitesJSON = JSON.parse(localStorage[countryName]);
+            var website = $('#websites option:selected');
+            var params = "address=" + countryName;
+            $("#pingButton").removeClass("active");
+            $("#tracerouteButton").removeClass("active");
+            if (website.text() === "Wybierz stronę") {
+                $('#pingButton').prop('disabled', true);
+                $('#tracerouteButton').prop('disabled', true);
+                return;
+            }
+            $('#pingButton').prop('disabled', false);
+            $('#tracerouteButton').prop('disabled', false);
 
-              var infoWindow = new google.maps.InfoWindow({
-                content: serverLabel
-              });
-              var websitePosition = data.results[0].geometry.location;
+            $.ajax({
+                type: 'get',
+                url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                data: params,
+                success: function (data) {
+                    map.clearOverlays();
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: website.text()
+                    });
+                    var websitePosition = data.results[0].geometry.location;
+                    var marker = new google.maps.Marker({
+                        position: websitePosition,
+                        map: map,
+                        title: website.text()
+                    });
+                    markersArray.push(marker);
+                    infoWindow.open(map, marker);
+                    marker.addListener('click', function () {
+                        infoWindow.open(map, marker);
 
-              var maxPing = 300;
-              var h = Math.floor(120 * Math.max(0, ((maxPing - ping) / maxPing)));
-              var s = 90;
-              var l = 50;
-              if (ping === -1) l = 0;
-              var color = "hsl(" + h + "," + s + "%," + l + "%)";
+                    });
 
-              var cityCircle = new google.maps.Circle({
-                strokeColor: color,
-                strokeOpacity: 0.8,
-                strokeWeight: 2,
-                fillColor: color,
-                fillOpacity: 0.35,
-                map: map,
-                center: websitePosition,
-                radius: 250000,
-                label: "XD"
-              });
+                    map.setCenter(websitePosition);
+                }
+
+                //localStorage[countryName] = JSON.stringify(data);
+                //availableProductNames = data.split(",");
+
+                //alert(data);
+
+            });
 
 
-              // var marker = new google.maps.Marker({
-              //   position: websitePosition,
-              //   map: map,
-              //   title: serverLabel
-              // });
-              markersArray.push(cityCircle);
-              //infoWindow.open(map, marker);
-              // cityCircle.addListener('click', function () {
-              //   infoWindow.open(map, marker);
+        }
+        ;
 
-              // });
+        function getServerData() {
+            map.clearOverlays();
+            $('.server-info').removeClass("inactive");
+            $(".server-info thead")
+                .remove();
+            $(".server-info")
+                .append("<thead></thead>");
+            $(".server-info thead")
+                .append('<th>Address</th>')
+                .append('<th>Country</th>')
+                .append('<th>Delay</th>')
+                .append('<th>Domain</th>')
+                .append('<th>Name</th>');
+            $('.server-info tbody')
+                .find("tr")
+                .remove();
 
-              //map.setCenter(websitePosition);
+            var e = document.getElementById("countries");
+            var countryName = e.options[e.selectedIndex].text;
+            var f = document.getElementById("servers");
+            var serverName = f.options[f.selectedIndex].text;
+            if (serverName === "Wybierz serwer") {
+                return;
+            }
+            var serverId = f.options[f.selectedIndex].value;
+            websitesJSON = JSON.parse(localStorage[countryName]);
+            var website = $('#websites option:selected');
+            var websiteId = website.val();
+            var params = "address=" + countryName;
+
+            var websiteCoordinates;
+            $.ajax({
+                type: 'get',
+                url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                data: params,
+                async: false,
+                success: function (data) {
+                    map.clearOverlays();
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: website.text()
+                    });
+                    var websitePosition = data.results[0].geometry.location;
+                    websiteCoordinates = data.results[0].geometry.location;
+                    var marker = new google.maps.Marker({
+                        position: websitePosition,
+                        map: map,
+                        title: website.text()
+                    });
+                    markersArray.push(marker);
+                    infoWindow.open(map, marker);
+                    marker.addListener('click', function () {
+                        infoWindow.open(map, marker);
+
+                    });
+
+                    map.setCenter(websitePosition);
+                }
+            });
+            var tracerouteCoordinates = [];
+
+            var params = "address=" + serverName;
+            $.ajax({
+                type: 'get',
+                url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                data: params,
+                async: false,
+                success: function (data) {
+                    //map.clearOverlays();
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: serverName
+                    });
+                    var websitePosition = data.results[0].geometry.location;
+                    tracerouteCoordinates.push(websitePosition);
+                    var marker = new google.maps.Marker({
+                        position: websitePosition,
+                        map: map,
+                        title: serverName
+                    });
+                    markersArray.push(marker);
+                    infoWindow.open(map, marker);
+                    marker.addListener('click', function () {
+                        infoWindow.open(map, marker);
+
+                    });
+
+                    //map.setCenter(websitePosition);
+                }
+            });
+
+
+            for (var i = 1; i < websitesJSON[websiteId].servers[serverId].traceroute.length; i++) {
+                // var opt = document.createElement('option');
+                // opt.innerHTML = data[i].address;
+                // opt.value = i;
+                // sel.appendChild(opt);
+                step = websitesJSON[websiteId].servers[serverId].traceroute[i];
+                $('.server-info')
+                    .append('<tr><td>' + step.address
+                        + '</td><td>' + step.country
+                        + '</td><td>' + step.delay
+                        + '</td><td>' + step.domain
+                        + '</td><td>' + step.name + '</td></tr>');
+                countryName = step.country;
+                if (countryName != "???") {
+                    params = "address=" + countryName;
+                    $.ajax({
+                        type: 'get',
+                        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                        data: params,
+                        async: false,
+                        success: function (data) {
+                            serverLabel = data.results[0].formatted_address;
+
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: serverLabel
+                            });
+                            var websitePosition = data.results[0].geometry.location;
+
+                            var marker = new google.maps.Marker({
+                                position: websitePosition,
+                                map: map,
+                                title: serverLabel
+                            });
+                            markersArray.push(marker);
+                            //infoWindow.open(map, marker);
+                            marker.addListener('click', function () {
+                                infoWindow.open(map, marker);
+
+                            });
+
+
+                            tracerouteCoordinates.push(websitePosition);
+
+                            if (tracerouteCoordinates.length > 1) {
+                                var traceroutePath = new google.maps.Polyline({
+                                    path: tracerouteCoordinates,
+                                    geodesic: false,
+                                    strokeColor: '#FF0000',
+                                    strokeOpacity: 1.0,
+                                    strokeWeight: 2
+                                });
+
+                                traceroutePath.setMap(map);
+                                polylinesArray.push(traceroutePath);
+                                tracerouteCoordinates.shift;
+                            }
+
+                        }
+                        //localStorage[countryName] = JSON.stringify(data);
+                        //availableProductNames = data.split(",");
+
+                        //alert(data);
+
+                    });
+                }
+            }
+        }
+
+        function httpGetAsync() {
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.onreadystatechange = function () {
+                if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                    alert(xmlHttp.responseText);
+            }
+            var e = document.getElementById("countries");
+            var strUser = e.options[e.selectedIndex].text;
+            var params = "xd?search=" + strUser; // probably use document.getElementById(...).value
+            xmlHttp.open("GET", params, true); // true for asynchronous
+            xmlHttp.send(null);
+        }
+
+        function setPingOverlay() {
+            map.clearOverlays();
+            $("#pingButton").addClass("active");
+            $("#tracerouteButton").removeClass("active");
+            $('#servers').prop('disabled', true);
+            $('.server-info').removeClass("inactive");
+            $(".server-info thead")
+                .remove();
+            $(".server-info")
+                .append("<thead></thead>");
+            $(".server-info thead")
+                .append('<th>Server name</th>')
+                .append('<th>Min</th>')
+                .append('<th>Avg</th>')
+                .append('<th>Max</th>')
+                .append('<th>Percent lost</th>');
+            $('.server-info tbody')
+                .find("tr")
+                .remove();
+
+            var e = document.getElementById("countries");
+            var countryName = e.options[e.selectedIndex].text;
+            websitesJSON = JSON.parse(localStorage[countryName]);
+            var website = $('#websites option:selected');
+            var websiteId = website.val();
+            var params = "address=" + countryName;
+
+            $.ajax({
+                type: 'get',
+                url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                data: params,
+                success: function (data) {
+                    map.clearOverlays();
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: website.text()
+                    });
+                    var websitePosition = data.results[0].geometry.location;
+                    var marker = new google.maps.Marker({
+                        position: websitePosition,
+                        map: map,
+                        title: website.text()
+                    });
+                    markersArray.push(marker);
+                    infoWindow.open(map, marker);
+                    marker.addListener('click', function () {
+                        infoWindow.open(map, marker);
+
+                    });
+
+                    map.setCenter(websitePosition);
+                }
+            });
+
+            //var serverName;
+            for (var i = 0; i < websitesJSON[websiteId].servers.length; i++) {
+                // var opt = document.createElement('option');
+                // opt.innerHTML = data[i].address;
+                // opt.value = i;
+                // sel.appendChild(opt);
+                serverName = websitesJSON[websiteId].servers[i].name;
+                params = "address=" + serverName;
+                (function (server) {
+                    $.ajax({
+                        type: 'get',
+                        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                        data: params,
+                        async: true,
+                        success: function (data) {
+                            serverLabel = data.results[0].formatted_address;
+
+                            var websitePosition = data.results[0].geometry.location;
+                            var ping = server.ping;
+                            var maxPing = 300;
+                            var h = Math.floor(120 * Math.max(0, ((maxPing - ping.avg) / maxPing)));
+                            var s = 90;
+                            var l = 50;
+                            if (ping.avg === -1) l = 0;
+                            var color = "hsl(" + h + "," + s + "%," + l + "%)";
+
+                            var cityCircle = new google.maps.Circle({
+                                strokeColor: color,
+                                strokeOpacity: 0.8,
+                                strokeWeight: 2,
+                                fillColor: color,
+                                fillOpacity: 0.35,
+                                map: map,
+                                center: websitePosition,
+                                radius: 250000,
+                                label: "XD"
+                            });
+                            var infoWindow = new google.maps.InfoWindow({
+                                content: (Math.round(ping.avg * 100) / 100).toString() + " ms"
+                            });
+                            var marker = new google.maps.Marker({
+                                position: websitePosition,
+                                map: map
+                            });
+                            markersArray.push(marker);
+                            marker.addListener('click', function () {
+                                infoWindow.open(map, marker);
+                            });
+                            var min = Math.round(ping.min * 100) / 100;
+                            var max = Math.round(ping.max * 100) / 100;
+                            var avg = Math.round(ping.avg * 100) / 100;
+                            var percent = ping.percent;
+                            if (avg === -1) {
+                                min = "-";
+                                max = "-";
+                                avg = "-";
+                                percent = 100;
+                            }
+                            $('.server-info')
+                                .append('<tr><td>' + server.name
+                                    + '</td><td>' + min
+                                    + ' ms</td><td>' + avg
+                                    + ' ms</td><td>' + max
+                                    + ' ms</td><td>' + percent + ' %</td></tr>');
+
+
+                            // var marker = new google.maps.Marker({
+                            //   position: websitePosition,
+                            //   map: map,
+                            //   title: serverLabel
+                            // });
+                            markersArray.push(cityCircle);
+                            //infoWindow.open(map, marker);
+                            // cityCircle.addListener('click', function () {
+                            //   infoWindow.open(map, marker);
+
+                            // });
+
+                            //map.setCenter(websitePosition);
+                        }
+
+                        //localStorage[countryName] = JSON.stringify(data);
+                        //availableProductNames = data.split(",");
+
+                        //alert(data);
+
+                    });
+                })(websitesJSON[websiteId].servers[i])
             }
 
-            //localStorage[countryName] = JSON.stringify(data);
-            //availableProductNames = data.split(",");
-
-            //alert(data);
-
-          });
-        })(websitesJSON[websiteId].servers[i].ping.avg)
-      }
-
-    }
-
-    function setTracerouteOverlay() {
-      var e = document.getElementById("countries");
-      var countryName = e.options[e.selectedIndex].text;
-      //var f = document.getElementById("servers");
-      //var serverName = e.options[e.selectedIndex].text;
-      websitesJSON = JSON.parse(localStorage[countryName]);
-      var website = $('#websites option:selected');
-      var websiteId = website.val();
-      var params = "address=" + countryName;
-      $("#tracerouteButton").addClass("active");
-      $("#pingButton").removeClass("active");
-      $('#servers').prop('disabled', false);
-
-
-      var websitesElement = document.getElementById('websites');
-      var websiteId = websitesElement.options[e.selectedIndex].value;
-      var sel = document.getElementById('servers');
-      for (var i = 0; i < websitesJSON[websiteId].servers.length; i++) {
-        var opt = document.createElement('option');
-        opt.innerHTML = websitesJSON[websiteId].servers[i].shortname + " - " + websitesJSON[websiteId].servers[i].name;
-        opt.value = i;
-        sel.appendChild(opt);
-      }
-
-
-      $.ajax({
-        type: 'get',
-        url: 'https://maps.googleapis.com/maps/api/geocode/json?',
-        data: params,
-        success: function (data) {
-          map.clearOverlays();
-          var infoWindow = new google.maps.InfoWindow({
-            content: website.text()
-          });
-          var websitePosition = data.results[0].geometry.location;
-          var marker = new google.maps.Marker({
-            position: websitePosition,
-            map: map,
-            title: website.text()
-          });
-          markersArray.push(marker);
-          infoWindow.open(map, marker);
-          marker.addListener('click', function () {
-            infoWindow.open(map, marker);
-
-          });
-
-          map.setCenter(websitePosition);
         }
-      });
-    }
-  </script>
-  <title>SuperPing - mapa</title>
+
+        function setTracerouteOverlay() {
+            var e = document.getElementById("countries");
+            var countryName = e.options[e.selectedIndex].text;
+            //var f = document.getElementById("servers");
+            //var serverName = e.options[e.selectedIndex].text;
+            websitesJSON = JSON.parse(localStorage[countryName]);
+            var website = $('#websites option:selected');
+            var websiteId = website.val();
+            var params = "address=" + countryName;
+            $("#tracerouteButton").addClass("active");
+            $("#pingButton").removeClass("active");
+            $('#servers').prop('disabled', false);
+            $('.server-info').addClass("inactive");
+
+
+            var websitesElement = document.getElementById('websites');
+            var websiteId = websitesElement.options[e.selectedIndex].value;
+            var sel = document.getElementById('servers');
+            $('#servers')
+                .find('option')
+                .remove()
+                .end()
+                .append('<option value="Wybierz stronę">Wybierz stronę</option>');
+            for (var i = 0; i < websitesJSON[websiteId].servers.length; i++) {
+                var opt = document.createElement('option');
+                opt.innerHTML = websitesJSON[websiteId].servers[i].shortname + " - " + websitesJSON[websiteId].servers[i].name;
+                opt.value = i;
+                sel.appendChild(opt);
+            }
+
+
+            $.ajax({
+                type: 'get',
+                url: 'https://maps.googleapis.com/maps/api/geocode/json?',
+                data: params,
+                success: function (data) {
+                    map.clearOverlays();
+                    var infoWindow = new google.maps.InfoWindow({
+                        content: website.text()
+                    });
+                    var websitePosition = data.results[0].geometry.location;
+                    var marker = new google.maps.Marker({
+                        position: websitePosition,
+                        map: map,
+                        title: website.text()
+                    });
+                    markersArray.push(marker);
+                    infoWindow.open(map, marker);
+                    marker.addListener('click', function () {
+                        infoWindow.open(map, marker);
+
+                    });
+
+                    map.setCenter(websitePosition);
+                }
+            });
+        }
+    </script>
+    <title>SuperPing - mapa</title>
 </head>
 
 <body onload="initialize()">
-  <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
     <a class="navbar-brand" href="#">SuperPing</a>
-  </nav>
+</nav>
 
-  <main role="main" class="container">
+<main role="main" class="container">
     <div class="row">
-      <div class="col-10">
-        <div id="map_canvas" style="width:100%; height:100%"></div>
-      </div>
-      <div class="col-2">
-        <div class="container">
-          <div class="row-fluid">
-            <select onchange="getCountryData()" id="countries">
-              <option>Wybierz państwo</option>
-            </select>
-          </div>
-          <div class="row-fluid">
-            <div class="col-12">
-              <select onchange="getWebsite()" id="websites" disabled="true">
-                <option value="Wybierz stronę">Wybierz stronę</option>
-              </select>
-              <div class="btn-group" role="group" aria-label="Basic example">
-                <button id="pingButton" type="button" class="btn btn-primary" onclick="setPingOverlay()" disabled="true">Ping</button>
-                <button id="tracerouteButton" type="button" class="btn btn-primary" onclick="setTracerouteOverlay()" disabled="true">Traceroute</button>
-              </div>
-              <select onchange="getServerData()" id="servers" disabled="true">
-                <option>Wybierz serwer</option>
-              </select>
-            </div>
-          </div>
+        <div class="col-10">
+            <div id="map_canvas" style="width:100%; height:100%"></div>
         </div>
-      </div>
+        <div class="col-2">
+            <div class="container">
+                <div class="row-fluid">
+                    <div class="col-12">
+                        <select onchange="getCountryData()" id="countries">
+                            <option>Wybierz państwo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="col-12">
+                        <select onchange="getWebsite()" id="websites" disabled="true">
+                            <option value="Wybierz stronę">Wybierz stronę</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="col-12">
+                        <div class="btn-group" role="group" aria-label="Basic example">
+                            <button id="pingButton" type="button" class="btn btn-primary" onclick="setPingOverlay()"
+                                    disabled="true">Ping
+                            </button>
+                            <button id="tracerouteButton" type="button" class="btn btn-primary"
+                                    onclick="setTracerouteOverlay()" disabled="true">Traceroute
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="col-12">
+                        <select onchange="getServerData()" id="servers" disabled="true">
+                            <option>Wybierz serwer</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </main>
-  <!-- /.container -->
-
-
-
+    <div id="info" class="row">
+        <div class="col-12">
+            <table class="server-info table table-striped table-sm inactive">
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+<!-- /.container -->
 
 
 </body>
